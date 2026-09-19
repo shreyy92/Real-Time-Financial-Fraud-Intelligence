@@ -1,0 +1,53 @@
+# Member 2 — PySpark Feature Engineering Configuration
+# Real-Time Financial Fraud Intelligence Platform
+
+feature_version: "v1.0"
+
+spark:
+  app_name: "FinancialFraud-Member2"
+  master: "local[*]"
+  driver_memory: "4g"
+  shuffle_partitions: 16
+  compression_codec: "snappy"
+  arrow_enabled: true
+  timezone: "UTC"
+
+paysim:
+  # Path configuration (Relative to project root or HDFS URIs)
+  input_path: "data/processed/paysim_clean.parquet"
+  output_path: "data/features/paysim_features.parquet"
+  
+  # Execution flags
+  include_tier_b: true
+  num_output_partitions: 8
+  
+  # Time-based split cuts (Steps 1-743, 1 step = 1 hour)
+  split_cuts:
+    train_max_step: 500   # Steps 1-500: Train (~6.06M rows)
+    valid_max_step: 600   # Steps 501-600: Validation (~197K rows)
+    # Remaining steps 601-743: Test (~103K rows)
+    
+  # Destination rolling window sizes (in hours)
+  windows:
+    short_hours: 24       # 1-day burst
+    long_hours: 168       # 7-day velocity
+
+ieee:
+  # Path configuration
+  input_path: "data/processed/ieee_clean.parquet"
+  output_path: "data/features/ieee_features.parquet"
+  
+  # Execution flags
+  drop_uninformative_near_constants: true
+  num_output_partitions: 4
+  
+  # Time-based split cuts (TransactionDT in seconds, days 1-183)
+  split_cuts:
+    train_max_day: 130.0  # Days 1-130: Train (~75% rows, ~3.51% fraud)
+                          # Days 131-183: Validation (~25% rows, ~3.45% fraud)
+                          
+  # Card proxy rolling window sizes (in seconds)
+  windows:
+    short_secs: 3600      # 1 hour
+    mid_secs: 86400       # 24 hours (1 day)
+    long_secs: 604800     # 7 days

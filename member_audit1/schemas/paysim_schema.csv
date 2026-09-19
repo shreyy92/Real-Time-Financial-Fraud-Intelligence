@@ -1,0 +1,13 @@
+dataset,column,data_type,null_count,null_pct,exact_unique,min,max,description,potential_feature_role
+paysim,step,int32,0,0.0,743,1,743,"Simulation time unit: 1 step = 1 hour (range 1-743, ~31 days). No calendar timestamp.",TIME: ordering key + window axis; not an ML feature directly (drift proxy)
+paysim,type,string,0,0.0,5,CASH_IN,TRANSFER,"Transaction type: CASH_IN, CASH_OUT, DEBIT, PAYMENT, TRANSFER",CATEGORICAL (5 levels); fraud only in TRANSFER/CASH_OUT
+paysim,amount,double,0,0.0,5316900,0.0,92445516.64,Transaction amount in local currency,NUMERIC: heavy right-skew -> log1p; ratios to balances
+paysim,nameOrig,string,0,0.0,6353307,C1000000639,C999999784,Originating (sender) customer ID (always 'C' prefix),IDENTIFIER (entity key). NOT a model feature. 99.85% of IDs appear once
+paysim,oldbalanceOrg,double,0,0.0,1845844,0.0,59585040.37,Sender balance BEFORE the transaction,"NUMERIC: pre-txn state, available at scoring time"
+paysim,newbalanceOrig,double,0,0.0,2682586,0.0,49585040.37,Sender balance AFTER the transaction,POST-TXN STATE: leakage-prone (see Part 7); prefer derived deltas with explicit caveat
+paysim,nameDest,string,0,0.0,2722362,C1000004082,M999999784,"Recipient ID ('C' = customer, 'M' = merchant)",IDENTIFIER (entity key); source of fan-in/first-seen features. NOT a raw feature
+paysim,oldbalanceDest,double,0,0.0,3614697,0.0,356015889.35,Recipient balance BEFORE the transaction (0 for all merchants),NUMERIC: pre-txn state; zeros are structural for merchants
+paysim,newbalanceDest,double,0,0.0,3555499,0.0,356179278.92,Recipient balance AFTER the transaction (0 for all merchants),POST-TXN STATE: leakage-prone
+paysim,isFraud,int32,0,0.0,2,0,1,"TARGET: 1 = fraudulent transaction, 0 = legitimate",TARGET LABEL
+paysim,isFlaggedFraud,int32 (NOT NULL),0,0.0,2,0,1,"Simulator's own rule-based flag; fires on only 16 rows (all TRANSFER, all fraud)",EXCLUDE from ML features (near-constant; rule-engine output). Keep only as rules-baseline reference
+paysim,step_hour,int32,0,0.0,24,0,23,Member 1 derived: step % 24 (hour-of-day proxy; 0-23),TEMPORAL (cyclical). Semantics slightly ambiguous (see Part 2)
