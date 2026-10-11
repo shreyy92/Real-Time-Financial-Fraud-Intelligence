@@ -12,6 +12,7 @@ import sys
 import math
 import json
 import argparse
+import datetime
 from typing import Iterator, Tuple, List, Dict, Any, Optional
 
 import pandas as pd
@@ -27,6 +28,7 @@ from pyspark.sql.types import (
     LongType,
     DoubleType,
     ByteType,
+    BooleanType,
 )
 from pyspark.sql.streaming.state import GroupState, GroupStateTimeout
 
@@ -45,17 +47,17 @@ PAYSIM_RAW_SCHEMA = StructType([
     StructField("isFlaggedFraud", IntegerType(), True),
 ])
 
-# Complete PaySim Tier A Output Schema (Order exactly matches Member 2's Tier A Contract)
+# Complete PaySim Tier A Output Schema verbatim from Member 2's OUTPUT_CONTRACT.md
+# Note: newbalanceOrig and newbalanceDest are removed (Tier B leakage).
+# isFraud is retained exclusively as the target label column.
 PAYSIM_OUTPUT_SCHEMA = StructType([
     StructField("step", IntegerType(), True),
     StructField("type", StringType(), True),
     StructField("amount", DoubleType(), True),
     StructField("nameOrig", StringType(), True),
     StructField("oldbalanceOrg", DoubleType(), True),
-    StructField("newbalanceOrig", DoubleType(), True),
     StructField("nameDest", StringType(), True),
     StructField("oldbalanceDest", DoubleType(), True),
-    StructField("newbalanceDest", DoubleType(), True),
     StructField("isFraud", IntegerType(), True),
     StructField("step_hour", IntegerType(), True),
     StructField("txn_id", StringType(), True),
@@ -110,6 +112,67 @@ PAYSIM_STATE_SCHEMA = StructType([
     StructField("pending_amount_max", DoubleType(), True),
     StructField("pending_cashout_count", IntegerType(), True),
 ])
+
+DLQ_EVAL_SCHEMA = StructType([
+    StructField("reason_code", StringType(), True),
+    StructField("ingested_at", StringType(), True),
+    StructField("is_valid", BooleanType(), True),
+])
+
+DLQ_RECORD_SCHEMA = StructType([
+    StructField("raw_value", StringType(), True),
+    StructField("reason_code", StringType(), True),
+    StructField("ingested_at", StringType(), True),
+])
+
+
+def classify_dlq_record(raw_val: Optional[str]) -> Tuple[Optional[str], str, bool]:
+    """
+    Validate raw JSON transaction string across the 6 failure categories.
+    Returns (reason_code, ingested_at, is_valid).
+    """
+    now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    if raw_val is None:
+        return ("MALFORMED_JSON", now, False)
+
+    try:
+        obj = json.loads(raw_val)
+        if not isinstance(obj, dict):
+            return ("MALFORMED_JSON", now, False)
+    except Exception:
+        return ("MALFORMED_JSON", now, False)
+
+    # 1. Missing required field
+    required_keys = ["step", "type", "amount", "nameOrig", "nameDest", "isFraud"]
+    for k in required_keys:
+        if k not in obj or obj[k] is None:
+            return ("MISSING_FIELD", now, False)
+
+    # 2. Bad data type
+    if not isinstance(obj["step"], int) or isinstance(obj["step"], bool):
+        return ("BAD_TYPE", now, False)
+    if not isinstance(obj["amount"], (int, float)) or isinstance(obj["amount"], bool):
+        return ("BAD_TYPE", now, False)
+    if not isinstance(obj["type"], str) or not isinstance(obj["nameOrig"], str) or not isinstance(obj["nameDest"], str):
+        return ("BAD_TYPE", now, False)
+    if not isinstance(obj["isFraud"], int) or isinstance(obj["isFraud"], bool):
+        return ("BAD_TYPE", now, False)
+
+    # 3. Negative transaction amount
+    if float(obj["amount"]) < 0.0:
+        return ("NEGATIVE_AMOUNT", now, False)
+
+    # 4. Out-of-bounds simulation step (step == 9999 or not in 1..743)
+    step_num = int(obj["step"])
+    if step_num == 9999 or step_num < 1 or step_num > 743:
+        return ("INVALID_STEP", now, False)
+
+    # 5. Invalid target label (isFraud not in {0, 1})
+    if int(obj["isFraud"]) not in (0, 1):
+        return ("INVALID_LABEL", now, False)
+
+    return (None, now, True)
+
 
 
 def add_stateless_features(df: DataFrame) -> DataFrame:
@@ -215,7 +278,8 @@ def update_destination_state(
     - Z-Score: Evaluated only when prior count >= 3 and prior std > 1e-5; null otherwise.
     - Rolling Windows (24h, 168h): Evaluated on `[step - 24, step - 1]` and `[step - 168, step - 1]`.
     - Buffer pruning: Rolling buffer keeps entries within `latest_step - 168`.
-    - State Persistence: Indefinite per-key history for prior_* aggregates (no wall-clock eviction).
+    - Late-Event Guard: If an incoming row's step is lower than the key's committed latest step,
+      it is not applied to state and is routed directly to the DLQ with reason_code LATE_EVENT.
     """
     if state.hasTimedOut:
         state.remove()
@@ -256,10 +320,38 @@ def update_destination_state(
         pending_cashout = 0
 
     out_dfs: List[pd.DataFrame] = []
+    dlq_producer = None
 
     for pdf in pdf_iter:
         if pdf.empty:
             continue
+
+        # Check for late events (incoming row step < committed s_last_step)
+        if s_last_step is not None:
+            late_mask = pdf["step"] < s_last_step
+            if late_mask.any():
+                late_rows = pdf[late_mask]
+                try:
+                    from kafka import KafkaProducer
+                    if dlq_producer is None:
+                        dlq_producer = KafkaProducer(
+                            bootstrap_servers=["localhost:9092"],
+                            value_serializer=lambda v: json.dumps(v).encode("utf-8"),
+                        )
+                    for r in late_rows.to_dict(orient="records"):
+                        dlq_record = {
+                            "raw_value": json.dumps(r),
+                            "reason_code": "LATE_EVENT",
+                            "ingested_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                        }
+                        dlq_producer.send("financial_transactions_paysim_dlq", value=dlq_record)
+                    dlq_producer.flush()
+                except Exception as ex:
+                    print(f"Warning: Failed to route late event to DLQ: {ex}")
+
+                pdf = pdf[~late_mask]
+                if pdf.empty:
+                    continue
 
         # Sort incoming mini-batch chunk by step to ensure deterministic chronological replay
         pdf = pdf.sort_values(by="step", ascending=True, kind="stable")
@@ -351,12 +443,13 @@ def update_destination_state(
             # Prune sliding window buffer beyond 168 steps
             history = [(s, a) for (s, a) in history if s >= int(step_val) - 168]
 
-        out_pdf = pd.concat(processed_chunks, ignore_index=True)
-        out_pdf["feature_version"] = "v1.0"
+        if processed_chunks:
+            out_pdf = pd.concat(processed_chunks, ignore_index=True)
+            out_pdf["feature_version"] = "v1.0"
 
-        # Ensure exact column order matching Tier A contract
-        cols = [f.name for f in PAYSIM_OUTPUT_SCHEMA.fields]
-        out_dfs.append(out_pdf[cols])
+            # Ensure exact column order matching Tier A contract
+            cols = [f.name for f in PAYSIM_OUTPUT_SCHEMA.fields]
+            out_dfs.append(out_pdf[cols])
 
     # Persist updated state with indefinite retention (NoTimeout)
     state.update((
@@ -375,6 +468,12 @@ def update_destination_state(
         int(pending_cashout),
     ))
 
+    if dlq_producer is not None:
+        try:
+            dlq_producer.close()
+        except Exception:
+            pass
+
     for df in out_dfs:
         yield df
 
@@ -386,7 +485,9 @@ def create_spark_session(app_name: str = "PaySimStreamingConsumer") -> SparkSess
         .appName(app_name)
         .config("spark.jars.packages", "org.apache.spark:spark-sql-kafka-0-10_2.13:4.1.1")
         .config("spark.sql.shuffle.partitions", "2")
-        .config("spark.sql.streaming.stateStore.providerClass", "org.apache.spark.sql.execution.streaming.state.HDFSBackedStateStoreProvider")
+        .config("spark.sql.streaming.stateStore.providerClass", "org.apache.spark.sql.execution.streaming.state.RocksDBStateStoreProvider")
+        .config("spark.driver.host", "localhost")
+        .config("spark.driver.bindAddress", "localhost")
         .getOrCreate()
     )
 
@@ -418,29 +519,32 @@ def build_streaming_pipeline(
 
     raw_stream = stream_reader.load()
 
-    # Decode JSON and validate
-    parsed_stream = raw_stream.select(
+    # Define classification UDF for DLQ routing
+    classify_udf = F.udf(classify_dlq_record, DLQ_EVAL_SCHEMA)
+
+    eval_stream = raw_stream.select(
         F.col("key").cast("string").alias("kafka_key"),
         F.col("value").cast("string").alias("raw_json"),
-        F.from_json(F.col("value").cast("string"), PAYSIM_RAW_SCHEMA).alias("data"),
+        classify_udf(F.col("value").cast("string")).alias("eval"),
     )
 
-    # Route malformed records (null step or amount or nameDest or unparseable) to DLQ
-    malformed_stream = parsed_stream.filter(
-        F.col("data.step").isNull()
-        | F.col("data.amount").isNull()
-        | F.col("data.nameDest").isNull()
-    ).select(
+    # Branch 1: Invalid / malformed records -> DLQ topic
+    malformed_stream = eval_stream.filter(F.col("eval.is_valid") == False).select(
         F.col("kafka_key").alias("key"),
-        F.col("raw_json").alias("value"),
+        F.to_json(
+            F.struct(
+                F.col("raw_json").alias("raw_value"),
+                F.col("eval.reason_code").alias("reason_code"),
+                F.col("eval.ingested_at").alias("ingested_at"),
+            ),
+            {"ignoreNullFields": "false"},
+        ).alias("value"),
     )
 
+    # Branch 2: Valid records -> Parse JSON and compute Tier A features
     valid_stream = (
-        parsed_stream.filter(
-            F.col("data.step").isNotNull()
-            & F.col("data.amount").isNotNull()
-            & F.col("data.nameDest").isNotNull()
-        )
+        eval_stream.filter(F.col("eval.is_valid") == True)
+        .select(F.from_json(F.col("raw_json"), PAYSIM_RAW_SCHEMA).alias("data"))
         .select("data.*")
     )
 
@@ -473,10 +577,13 @@ def build_streaming_pipeline(
     )
 
     if output_topic and checkpoint_location:
-        # Write to Kafka output topic
+        # Write to Kafka output topic with explicit nulls (ignoreNullFields=false)
         kafka_payload = stateful_df.select(
             F.col("txn_id").alias("key"),
-            F.to_json(F.struct([F.col(c) for c in stateful_df.columns])).alias("value"),
+            F.to_json(
+                F.struct([F.col(c) for c in stateful_df.columns]),
+                {"ignoreNullFields": "false"},
+            ).alias("value"),
         )
         main_chk = os.path.join(checkpoint_location, "features")
         query = (
