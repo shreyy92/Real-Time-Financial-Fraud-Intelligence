@@ -548,4 +548,130 @@ NOT_A_VALID_JSON_STRING_AT_ALL_CORRUPTED
   ```
 - Result: **0 duplicates, 0 dropped messages, perfect state recovery across process restarts**.
 
+---
+
+# Phase 3 Hardening & Refinements (Chain Step 3 Redo)
+
+## 1. Item 1: Output Schema & Explicit Null Serialization
+- **Removed columns**: `newbalanceOrig` and `newbalanceDest` (Tier B, data leakage).
+- **Preserved columns**: `isFraud` preserved exclusively as target label column.
+- **Contract Schema**: Matches Member 2's Tier A schema (41 columns) identically.
+- **Serialization**: PySpark Kafka output sink serialized using:
+  `to_json(..., {"ignoreNullFields": "false"})` ensuring every message contains every field explicitly.
+- **Sample Verified Full Output Message**:
+  ```json
+  {"step":8,"type":"CASH_OUT","amount":47343.92,"nameOrig":"C1033489476","oldbalanceOrg":11304.0,"nameDest":"C1001409363","oldbalanceDest":124015.0,"isFraud":0,"step_hour":8,"txn_id":"98343cbbdda989646aa17efd70f43479069feb4796b54f730ed346ec514806b4","hour_sin":0.8660254037844387,"hour_cos":-0.4999999999999998,"sim_day":0,"history_window_complete_flag":0,"type_transfer":0,"type_cash_out":1,"type_payment":0,"type_cash_in":0,"type_debit":0,"amount_log1p":10.765214806691809,"amount_zero_flag":0,"amt_to_oldbalOrg":4.187874391862008,"amt_to_oldbalDest":0.3817565475422526,"orig_drain_flag":0,"amount_exceeds_orig_balance_flag":1,"orig_balance_zero_flag":0,"dest_balance_zero_flag":0,"dest_prior_txn_count":0,"dest_first_seen_flag":1,"dest_prior_amount_sum":0.0,"dest_prior_amount_mean":null,"dest_prior_amount_std":null,"dest_prior_amount_max":null,"dest_steps_since_last_txn":null,"dest_amount_zscore":null,"dest_txn_count_prev_24h":0,"dest_txn_count_prev_168h":0,"dest_amount_sum_prev_24h":0.0,"dest_amount_sum_prev_168h":0.0,"dest_prior_cashout_share":null,"feature_version":"v1.0"}
+  ```
+
+---
+
+## 2. Item 2: Late-Event Guard
+- **Logic**: In `update_destination_state`, if an incoming row's `step` is lower than the key's committed `latest_step` (`step < s_last_step`), the event is rejected from state accumulation and routed directly to `financial_transactions_paysim_dlq` with `reason_code = "LATE_EVENT"`.
+- **Proof & Test Execution**:
+  - Key `M_LATE_TEST` was advanced to `step = 10` (count=2, sum=300.0).
+  - 10 replayed rows with `step = 2` were injected.
+  - Verified they landed in DLQ topic:
+    ```json
+    {"raw_value": "{\"step\": 2, \"type\": \"PAYMENT\", \"amount\": 50.0, \"nameOrig\": \"C_LATE_0\", ...}", "reason_code": "LATE_EVENT", "ingested_at": "2026-10-11T18:17:44.884140+00:00"}
+    ```
+  - Subsequent transaction at `step = 12` committed cleanly with:
+    - `dest_prior_txn_count`: 3 (unchanged by the 10 late rows)
+    - `dest_prior_amount_sum`: 600.0 (100.0 + 200.0 + 300.0)
+    - State and features remained completely untainted.
+
+---
+
+## 3. Item 3: Complete DLQ Test (All 6 Failure Modes)
+- `send_bad_messages.py` was updated and executed with all 6 categories:
+  1. `MALFORMED_JSON`: non-JSON corrupted payload
+  2. `MISSING_FIELD`: missing required fields
+  3. `BAD_TYPE`: step as string instead of int
+  4. `NEGATIVE_AMOUNT`: amount < 0.0
+  5. `INVALID_STEP`: step = 9999 (out-of-bounds)
+  6. `INVALID_LABEL`: isFraud = 2
+- **Raw DLQ Records Captured**:
+  ```json
+  {"raw_value": "CORRUPTED_NON_JSON_PAYLOAD_STRING{{{", "reason_code": "MALFORMED_JSON", "ingested_at": "2026-10-11T18:19:03.838691+00:00"}
+  {"raw_value": "{\"type\": \"TRANSFER\", \"amount\": 1500.0, \"nameOrig\": \"C_MISSING_1\", \"oldbalanceOrg\": 5000.0, \"newbalanceOrig\": 3500.0, \"oldbalanceDest\": 0.0, \"newbalanceDest\": 0.0, \"isFraud\": 0}", "reason_code": "MISSING_FIELD", "ingested_at": "2026-10-11T18:19:03.838691+00:00"}
+  {"raw_value": "{\"step\": \"one_hundred\", \"type\": \"PAYMENT\", \"amount\": 250.0, \"nameOrig\": \"C_BADTYPE_1\", \"nameDest\": \"M_DEST1\", \"oldbalanceOrg\": 500.0, \"newbalanceOrig\": 250.0, \"oldbalanceDest\": 0.0, \"newbalanceDest\": 0.0, \"isFraud\": 0}", "reason_code": "BAD_TYPE", "ingested_at": "2026-10-11T18:19:03.838691+00:00"}
+  {"raw_value": "{\"step\": 10, \"type\": \"PAYMENT\", \"amount\": -99.99, \"nameOrig\": \"C_NEG_1\", \"nameDest\": \"M_DEST2\", \"oldbalanceOrg\": 500.0, \"newbalanceOrig\": 500.0, \"oldbalanceDest\": 0.0, \"newbalanceDest\": 0.0, \"isFraud\": 0}", "reason_code": "NEGATIVE_AMOUNT", "ingested_at": "2026-10-11T18:19:03.838691+00:00"}
+  {"raw_value": "{\"step\": 9999, \"type\": \"CASH_OUT\", \"amount\": 300.0, \"nameOrig\": \"C_STEP_9999\", \"nameDest\": \"M_DEST3\", \"oldbalanceOrg\": 500.0, \"newbalanceOrig\": 200.0, \"oldbalanceDest\": 0.0, \"newbalanceDest\": 0.0, \"isFraud\": 0}", "reason_code": "INVALID_STEP", "ingested_at": "2026-10-11T18:19:03.838691+00:00"}
+  {"raw_value": "{\"step\": 15, \"type\": \"TRANSFER\", \"amount\": 1000.0, \"nameOrig\": \"C_FRAUD_2\", \"nameDest\": \"M_DEST4\", \"oldbalanceOrg\": 1000.0, \"newbalanceOrig\": 0.0, \"oldbalanceDest\": 0.0, \"newbalanceDest\": 0.0, \"isFraud\": 2}", "reason_code": "INVALID_LABEL", "ingested_at": "2026-10-11T18:19:03.838691+00:00"}
+  ```
+- **Query Status**: Confirmed `DLQ Query Active: True`, streamed uninterrupted without failure.
+
+---
+
+## 4. Item 4: Real Crash Recovery Test
+- **Setup & Execution**:
+  1. Deleted topics `financial_features_paysim`, `financial_transactions_paysim`, `financial_transactions_paysim_dlq`, and checkpoint directory `member3_streaming/checkpoints/paysim`.
+  2. Recreated all 3 Kafka topics with 1 partition each.
+  3. Produced exactly 20,000 rows into `financial_transactions_paysim` via `producer_paysim.py --limit 20000 --delay 0`.
+  4. Started streaming query with `maxOffsetsPerTrigger=500` and `outputMode=update` writing to Kafka topic `financial_features_paysim`.
+  5. Monitored output offset until ~10,000 records were processed:
+     - Output offset reached: `9,500` records.
+     - Hard-killed the consumer process (`taskkill /F /IM python.exe` / `os._exit(137)`).
+  6. Restarted the consumer query using the **exact same checkpoint location**.
+  7. Process resumed and processed the stream until all 20,000 input events were completely committed.
+- **Verification Results**:
+  - **Total output records read**: `20,000`
+  - **Distinct `txn_id` count**: `20,000`
+  - **Duplicate count**: `0`
+  - *(Note on At-Least-Once Delivery: Spark Structured Streaming's Kafka sink provides at-least-once delivery guarantees across failure recovery. Downstream consumers must deduplicate records on `txn_id` as specified in the contract).*
+  - **Parquet Ground Truth Comparison**:
+    - Compared deduped stream against `data/features/paysim_features.parquet` (matched by `txn_id`).
+    - **Matched ground truth rows**: `20,000 / 20,000`
+    - **Missing `txn_id`s**: `0`
+    - **Columns compared**: `40`
+    - **Per-feature mismatches**: `0 across all 40 columns (100% exact match)`:
+      - `step`: 0 mismatches
+      - `type`: 0 mismatches
+      - `amount`: 0 mismatches
+      - `nameOrig`: 0 mismatches
+      - `oldbalanceOrg`: 0 mismatches
+      - `nameDest`: 0 mismatches
+      - `oldbalanceDest`: 0 mismatches
+      - `isFraud`: 0 mismatches
+      - `step_hour`: 0 mismatches
+      - `txn_id`: 0 mismatches
+      - `hour_sin`: 0 mismatches
+      - `hour_cos`: 0 mismatches
+      - `sim_day`: 0 mismatches
+      - `history_window_complete_flag`: 0 mismatches
+      - `type_transfer`: 0 mismatches
+      - `type_cash_out`: 0 mismatches
+      - `type_payment`: 0 mismatches
+      - `type_cash_in`: 0 mismatches
+      - `type_debit`: 0 mismatches
+      - `amount_log1p`: 0 mismatches
+      - `amount_zero_flag`: 0 mismatches
+      - `amt_to_oldbalOrg`: 0 mismatches
+      - `amt_to_oldbalDest`: 0 mismatches
+      - `orig_drain_flag`: 0 mismatches
+      - `amount_exceeds_orig_balance_flag`: 0 mismatches
+      - `orig_balance_zero_flag`: 0 mismatches
+      - `dest_balance_zero_flag`: 0 mismatches
+      - `dest_prior_txn_count`: 0 mismatches
+      - `dest_first_seen_flag`: 0 mismatches
+      - `dest_prior_amount_sum`: 0 mismatches
+      - `dest_prior_amount_mean`: 0 mismatches
+      - `dest_prior_amount_std`: 0 mismatches
+      - `dest_prior_amount_max`: 0 mismatches
+      - `dest_steps_since_last_txn`: 0 mismatches
+      - `dest_amount_zscore`: 0 mismatches
+      - `dest_txn_count_prev_24h`: 0 mismatches
+      - `dest_txn_count_prev_168h`: 0 mismatches
+      - `dest_amount_sum_prev_24h`: 0 mismatches
+      - `dest_amount_sum_prev_168h`: 0 mismatches
+      - `dest_prior_cashout_share`: 0 mismatches
+
+---
+
+## 5. Item 5: RocksDB State Store Provider Configuration
+- Configured in `consumer_paysim.py`:
+  `spark.sql.streaming.stateStore.providerClass = org.apache.spark.sql.execution.streaming.state.RocksDBStateStoreProvider`
+- Documented in `member3_streaming/README.md`: Demo reruns require deleting the checkpoint directory and recreating topics.
+
+
+
 

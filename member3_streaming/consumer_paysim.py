@@ -591,7 +591,7 @@ def build_streaming_pipeline(
             .option("kafka.bootstrap.servers", bootstrap_servers)
             .option("topic", output_topic)
             .option("checkpointLocation", main_chk)
-            .outputMode("append")
+            .outputMode("update")
             .start()
         )
         return query
@@ -606,6 +606,7 @@ def main():
     parser.add_argument("--output-topic", type=str, default="financial_features_paysim")
     parser.add_argument("--dlq-topic", type=str, default="financial_transactions_paysim_dlq")
     parser.add_argument("--checkpoint-location", type=str, default="member3_streaming/checkpoints/paysim")
+    parser.add_argument("--max-offsets-per-trigger", type=int, default=None)
     args = parser.parse_args()
 
     spark = create_spark_session()
@@ -617,6 +618,7 @@ def main():
         output_topic=args.output_topic,
         dlq_topic=args.dlq_topic,
         checkpoint_location=args.checkpoint_location,
+        max_offsets_per_trigger=args.max_offsets_per_trigger,
     )
     print(f"Streaming query started to topic: {args.output_topic}")
     query.awaitTermination()
