@@ -93,7 +93,8 @@ PAYSIM_OUTPUT_SCHEMA = StructType([
 ])
 
 # State schema stored per destination account
-# Running aggregates for prior_* plus bounded sliding window history JSON string
+# Running aggregates for committed prior steps, pending buffer for current step,
+# plus bounded sliding window history JSON string
 PAYSIM_STATE_SCHEMA = StructType([
     StructField("count", IntegerType(), True),
     StructField("amount_sum", DoubleType(), True),
@@ -102,6 +103,12 @@ PAYSIM_STATE_SCHEMA = StructType([
     StructField("last_step", IntegerType(), True),
     StructField("cashout_count", IntegerType(), True),
     StructField("history_json", StringType(), True),
+    StructField("pending_step", IntegerType(), True),
+    StructField("pending_count", IntegerType(), True),
+    StructField("pending_amount_sum", DoubleType(), True),
+    StructField("pending_amount_sq_sum", DoubleType(), True),
+    StructField("pending_amount_max", DoubleType(), True),
+    StructField("pending_cashout_count", IntegerType(), True),
 ])
 
 
@@ -202,12 +209,13 @@ def update_destination_state(
     Window Semantics (Replicating Member 2's Exact Window Rules):
     - Strictly prior transactions: step < current_step (rangeBetween Window.unboundedPreceding to -1).
     - Same-step ties: Transactions in the same step are excluded from each other's prior history
-      and share the exact same prior state. They are incorporated for future steps.
+      and share the exact same prior state. They are incorporated for future steps once a strictly higher
+      step arrives, even when a step is split across micro-batch boundaries.
     - Standard Deviation: Sample standard deviation with n - 1 denominator when count >= 2.
     - Z-Score: Evaluated only when prior count >= 3 and prior std > 1e-5; null otherwise.
     - Rolling Windows (24h, 168h): Evaluated on `[step - 24, step - 1]` and `[step - 168, step - 1]`.
     - Buffer pruning: Rolling buffer keeps entries within `latest_step - 168`.
-    - State Timeout: 2 hours of processing time inactivity evicts dormant keys.
+    - State Persistence: Indefinite per-key history for prior_* aggregates (no wall-clock eviction).
     """
     if state.hasTimedOut:
         state.remove()
@@ -215,8 +223,22 @@ def update_destination_state(
 
     # Restore state or initialize clean accumulator
     if state.exists:
-        s_count, s_amount_sum, s_amount_sq_sum, s_amount_max, s_last_step, s_cashout_count, s_history_json = state.get
+        st_vals = state.get
+        s_count = st_vals[0]
+        s_amount_sum = st_vals[1]
+        s_amount_sq_sum = st_vals[2]
+        s_amount_max = st_vals[3]
+        s_last_step = st_vals[4]
+        s_cashout_count = st_vals[5]
+        s_history_json = st_vals[6]
         history = json.loads(s_history_json) if s_history_json else []
+
+        pending_step = st_vals[7]
+        pending_cnt = st_vals[8]
+        pending_sum = st_vals[9]
+        pending_sq = st_vals[10]
+        pending_max = st_vals[11]
+        pending_cashout = st_vals[12]
     else:
         s_count = 0
         s_amount_sum = 0.0
@@ -225,6 +247,13 @@ def update_destination_state(
         s_last_step = None
         s_cashout_count = 0
         history = []
+
+        pending_step = None
+        pending_cnt = 0
+        pending_sum = 0.0
+        pending_sq = 0.0
+        pending_max = None
+        pending_cashout = 0
 
     out_dfs: List[pd.DataFrame] = []
 
@@ -243,7 +272,24 @@ def update_destination_state(
             rows = group.copy()
             n_rows = len(rows)
 
-            # Prior state seen by all transactions in this step
+            # If we transition to a strictly higher step, commit any pending aggregates
+            if pending_step is not None and step_val > pending_step:
+                s_count += pending_cnt
+                s_amount_sum += pending_sum
+                s_amount_sq_sum += pending_sq
+                s_amount_max = pending_max if s_amount_max is None else max(s_amount_max, pending_max)
+                s_last_step = int(pending_step)
+                s_cashout_count += pending_cashout
+
+                # Reset pending accumulator
+                pending_step = None
+                pending_cnt = 0
+                pending_sum = 0.0
+                pending_sq = 0.0
+                pending_max = None
+                pending_cashout = 0
+
+            # Prior state seen by all transactions in this step (strictly step < current_step)
             prior_count = s_count
             prior_sum = s_amount_sum
             prior_mean = (prior_sum / prior_count) if prior_count > 0 else None
@@ -262,7 +308,7 @@ def update_destination_state(
             first_seen = 1 if prior_count == 0 else 0
             steps_since = int(step_val - prior_last_step) if prior_count > 0 else None
 
-            # 24h and 168h window filtering from history buffer
+            # 24h and 168h window filtering from history buffer (strictly prior steps: <= step_val - 1)
             cnt_24 = sum(1 for (s, a) in history if step_val - 24 <= s <= step_val - 1)
             sum_24 = float(sum(a for (s, a) in history if step_val - 24 <= s <= step_val - 1))
             cnt_168 = sum(1 for (s, a) in history if step_val - 168 <= s <= step_val - 1)
@@ -291,19 +337,19 @@ def update_destination_state(
 
             processed_chunks.append(rows)
 
-            # Update state with transactions from this step
+            # Accumulate this step into pending buffer
+            pending_step = int(step_val)
             for r in rows.itertuples():
-                s_count += 1
-                s_amount_sum += float(r.amount)
-                s_amount_sq_sum += float(r.amount * r.amount)
-                s_amount_max = float(r.amount) if s_amount_max is None else max(s_amount_max, float(r.amount))
-                s_last_step = int(step_val)
+                pending_cnt += 1
+                pending_sum += float(r.amount)
+                pending_sq += float(r.amount * r.amount)
+                pending_max = float(r.amount) if pending_max is None else max(pending_max, float(r.amount))
                 if r.type == "CASH_OUT":
-                    s_cashout_count += 1
+                    pending_cashout += 1
                 history.append((int(step_val), float(r.amount)))
 
             # Prune sliding window buffer beyond 168 steps
-            history = [(s, a) for (s, a) in history if s >= s_last_step - 168]
+            history = [(s, a) for (s, a) in history if s >= int(step_val) - 168]
 
         out_pdf = pd.concat(processed_chunks, ignore_index=True)
         out_pdf["feature_version"] = "v1.0"
@@ -312,7 +358,7 @@ def update_destination_state(
         cols = [f.name for f in PAYSIM_OUTPUT_SCHEMA.fields]
         out_dfs.append(out_pdf[cols])
 
-    # Persist updated state with 2-hour idle timeout
+    # Persist updated state with indefinite retention (NoTimeout)
     state.update((
         int(s_count),
         float(s_amount_sum),
@@ -321,8 +367,13 @@ def update_destination_state(
         int(s_last_step) if s_last_step is not None else None,
         int(s_cashout_count),
         json.dumps(history),
+        int(pending_step) if pending_step is not None else None,
+        int(pending_cnt),
+        float(pending_sum),
+        float(pending_sq),
+        float(pending_max) if pending_max is not None else None,
+        int(pending_cashout),
     ))
-    state.setTimeoutDuration("2 hours")
 
     for df in out_dfs:
         yield df
@@ -353,15 +404,19 @@ def build_streaming_pipeline(
     output_topic: Optional[str] = None,
     dlq_topic: str = "financial_transactions_paysim_dlq",
     checkpoint_location: Optional[str] = None,
+    max_offsets_per_trigger: Optional[int] = None,
 ) -> Any:
     """Build the end-to-end streaming query with DLQ routing, stateless & stateful features."""
-    raw_stream = (
+    stream_reader = (
         spark.readStream.format("kafka")
         .option("kafka.bootstrap.servers", bootstrap_servers)
         .option("subscribe", input_topic)
         .option("startingOffsets", "earliest")
-        .load()
     )
+    if max_offsets_per_trigger is not None:
+        stream_reader = stream_reader.option("maxOffsetsPerTrigger", max_offsets_per_trigger)
+
+    raw_stream = stream_reader.load()
 
     # Decode JSON and validate
     parsed_stream = raw_stream.select(
@@ -370,7 +425,16 @@ def build_streaming_pipeline(
         F.from_json(F.col("value").cast("string"), PAYSIM_RAW_SCHEMA).alias("data"),
     )
 
-    # Route malformed records (null step or amount) to DLQ
+    # Route malformed records (null step or amount or nameDest or unparseable) to DLQ
+    malformed_stream = parsed_stream.filter(
+        F.col("data.step").isNull()
+        | F.col("data.amount").isNull()
+        | F.col("data.nameDest").isNull()
+    ).select(
+        F.col("kafka_key").alias("key"),
+        F.col("raw_json").alias("value"),
+    )
+
     valid_stream = (
         parsed_stream.filter(
             F.col("data.step").isNotNull()
@@ -379,6 +443,19 @@ def build_streaming_pipeline(
         )
         .select("data.*")
     )
+
+    # If DLQ topic is enabled and checkpoint location provided, launch DLQ stream
+    dlq_query = None
+    if dlq_topic and checkpoint_location:
+        dlq_chk = os.path.join(checkpoint_location, "dlq")
+        dlq_query = (
+            malformed_stream.writeStream.format("kafka")
+            .option("kafka.bootstrap.servers", bootstrap_servers)
+            .option("topic", dlq_topic)
+            .option("checkpointLocation", dlq_chk)
+            .outputMode("append")
+            .start()
+        )
 
     # 1. Stateless feature engineering
     stateless_df = add_stateless_features(valid_stream)
@@ -391,7 +468,7 @@ def build_streaming_pipeline(
             outputStructType=PAYSIM_OUTPUT_SCHEMA,
             stateStructType=PAYSIM_STATE_SCHEMA,
             outputMode="Append",
-            timeoutConf=GroupStateTimeout.ProcessingTimeTimeout,
+            timeoutConf=GroupStateTimeout.NoTimeout,
         )
     )
 
@@ -401,11 +478,12 @@ def build_streaming_pipeline(
             F.col("txn_id").alias("key"),
             F.to_json(F.struct([F.col(c) for c in stateful_df.columns])).alias("value"),
         )
+        main_chk = os.path.join(checkpoint_location, "features")
         query = (
             kafka_payload.writeStream.format("kafka")
             .option("kafka.bootstrap.servers", bootstrap_servers)
             .option("topic", output_topic)
-            .option("checkpointLocation", checkpoint_location)
+            .option("checkpointLocation", main_chk)
             .outputMode("append")
             .start()
         )
