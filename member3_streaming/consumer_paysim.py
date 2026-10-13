@@ -657,6 +657,11 @@ def main():
     parser.add_argument("--kill-at-record", type=int, default=None)
     args = parser.parse_args()
 
+    if args.dlq_topic:
+        os.environ["PAYSIM_DLQ_TOPIC"] = args.dlq_topic
+    if args.bootstrap_servers:
+        os.environ["KAFKA_BOOTSTRAP_SERVERS"] = args.bootstrap_servers
+
     if args.kill_at_record is not None:
         os.environ["CRASH_TEST_KILL_AT_RECORD"] = str(args.kill_at_record)
         os.environ["SPARK_DRIVER_PID"] = str(os.getpid())
