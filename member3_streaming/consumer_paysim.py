@@ -508,7 +508,13 @@ def update_destination_state(
         cols = [f.name for f in PAYSIM_OUTPUT_SCHEMA.fields]
         yield pd.DataFrame(columns=cols)
     else:
+        trickle_sleep = os.getenv("PAYSIM_TRICKLE_SLEEP")
         for df in out_dfs:
+            if trickle_sleep:
+                try:
+                    time.sleep(float(trickle_sleep))
+                except Exception:
+                    pass
             yield df
 
 
