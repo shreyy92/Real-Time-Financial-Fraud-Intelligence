@@ -23,15 +23,17 @@ def main():
         {"step": "one_hundred", "type": "PAYMENT", "amount": 250.0, "nameOrig": "C_BADSTEP_1", "nameDest": "M_DEST1", "oldbalanceOrg": 500.0, "newbalanceOrig": 250.0, "oldbalanceDest": 0.0, "newbalanceDest": 0.0, "isFraud": 0},
         # 4. Bad transaction type (type="TELEPORT" -> BAD_TYPE)
         {"step": 10, "type": "TELEPORT", "amount": 250.0, "nameOrig": "C_BADTYPE_1", "nameDest": "M_DEST_TEL", "oldbalanceOrg": 500.0, "newbalanceOrig": 250.0, "oldbalanceDest": 0.0, "newbalanceDest": 0.0, "isFraud": 0},
-        # 5. Negative amount
+        # 5. Bad field type for non-step field (amount as string -> BAD_FIELD_TYPE)
+        {"step": 10, "type": "PAYMENT", "amount": "abc", "nameOrig": "C_BADFIELD_1", "nameDest": "M_DEST_FIELD", "oldbalanceOrg": 500.0, "newbalanceOrig": 250.0, "oldbalanceDest": 0.0, "newbalanceDest": 0.0, "isFraud": 0},
+        # 6. Negative amount
         {"step": 10, "type": "PAYMENT", "amount": -99.99, "nameOrig": "C_NEG_1", "nameDest": "M_DEST2", "oldbalanceOrg": 500.0, "newbalanceOrig": 500.0, "oldbalanceDest": 0.0, "newbalanceDest": 0.0, "isFraud": 0},
-        # 6. Out-of-bounds step (step 9999)
+        # 7. Out-of-bounds step (step 9999)
         {"step": 9999, "type": "CASH_OUT", "amount": 300.0, "nameOrig": "C_STEP_9999", "nameDest": "M_DEST3", "oldbalanceOrg": 500.0, "newbalanceOrig": 200.0, "oldbalanceDest": 0.0, "newbalanceDest": 0.0, "isFraud": 0},
-        # 7. Invalid label (isFraud = 2)
+        # 8. Invalid label (isFraud = 2)
         {"step": 15, "type": "TRANSFER", "amount": 1000.0, "nameOrig": "C_FRAUD_2", "nameDest": "M_DEST4", "oldbalanceOrg": 1000.0, "newbalanceOrig": 0.0, "oldbalanceDest": 0.0, "newbalanceDest": 0.0, "isFraud": 2},
     ]
 
-    print(f"Sending all 7 bad message kinds to {args.topic}...")
+    print(f"Sending all 8 bad message kinds to {args.topic}...")
     for idx, sample in enumerate(bad_samples, 1):
         producer.send(args.topic, value=sample)
         print(f"  Sent bad message #{idx}: {sample}")

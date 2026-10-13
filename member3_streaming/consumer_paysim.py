@@ -128,10 +128,22 @@ DLQ_RECORD_SCHEMA = StructType([
     StructField("ingested_at", StringType(), True),
 ])
 
+DLQ_REASON_CODES = {
+    "MALFORMED_JSON": "Payload is not valid JSON or not a JSON object",
+    "MISSING_FIELD": "One or more required fields are missing or null",
+    "BAD_STEP_TYPE": "Field 'step' is not an integer (e.g. string or boolean)",
+    "BAD_TYPE": "Field 'type' is not one of the allowed transaction types (TRANSFER, CASH_OUT, PAYMENT, CASH_IN, DEBIT)",
+    "BAD_FIELD_TYPE": "A non-step field has the wrong JSON type (e.g. amount is non-numeric string or boolean, name is non-string)",
+    "NEGATIVE_AMOUNT": "Transaction amount is negative (< 0.0)",
+    "INVALID_STEP": "Simulation step is out of bounds (step < 1, step > 743, or step == 9999)",
+    "INVALID_LABEL": "Target label 'isFraud' is not in {0, 1}",
+    "LATE_EVENT": "Transaction timestamp/step is strictly older than key's committed latest or pending step",
+}
+
 
 def classify_dlq_record(raw_val: Optional[str]) -> Tuple[Optional[str], str, bool]:
     """
-    Validate raw JSON transaction string across the 6 failure categories.
+    Validate raw JSON transaction string across DLQ failure categories.
     Returns (reason_code, ingested_at, is_valid).
     """
     now = datetime.datetime.now(datetime.timezone.utc).isoformat()
@@ -155,27 +167,29 @@ def classify_dlq_record(raw_val: Optional[str]) -> Tuple[Optional[str], str, boo
     if not isinstance(obj["step"], int) or isinstance(obj["step"], bool):
         return ("BAD_STEP_TYPE", now, False)
 
-    # 3. Bad type / invalid transaction type or bad field types
+    # 3. Bad transaction type
     VALID_TYPES = {"TRANSFER", "CASH_OUT", "PAYMENT", "CASH_IN", "DEBIT"}
     if not isinstance(obj["type"], str) or obj["type"] not in VALID_TYPES:
         return ("BAD_TYPE", now, False)
-    if not isinstance(obj["amount"], (int, float)) or isinstance(obj["amount"], bool):
-        return ("BAD_TYPE", now, False)
-    if not isinstance(obj["nameOrig"], str) or not isinstance(obj["nameDest"], str):
-        return ("BAD_TYPE", now, False)
-    if not isinstance(obj["isFraud"], int) or isinstance(obj["isFraud"], bool):
-        return ("BAD_TYPE", now, False)
 
-    # 3. Negative transaction amount
+    # 4. Bad field type for non-step fields
+    if not isinstance(obj["amount"], (int, float)) or isinstance(obj["amount"], bool):
+        return ("BAD_FIELD_TYPE", now, False)
+    if not isinstance(obj["nameOrig"], str) or not isinstance(obj["nameDest"], str):
+        return ("BAD_FIELD_TYPE", now, False)
+    if not isinstance(obj["isFraud"], int) or isinstance(obj["isFraud"], bool):
+        return ("BAD_FIELD_TYPE", now, False)
+
+    # 5. Negative transaction amount
     if float(obj["amount"]) < 0.0:
         return ("NEGATIVE_AMOUNT", now, False)
 
-    # 4. Out-of-bounds simulation step (step == 9999 or not in 1..743)
+    # 6. Out-of-bounds simulation step (step == 9999 or not in 1..743)
     step_num = int(obj["step"])
     if step_num == 9999 or step_num < 1 or step_num > 743:
         return ("INVALID_STEP", now, False)
 
-    # 5. Invalid target label (isFraud not in {0, 1})
+    # 7. Invalid target label (isFraud not in {0, 1})
     if int(obj["isFraud"]) not in (0, 1):
         return ("INVALID_LABEL", now, False)
 
@@ -350,16 +364,17 @@ def update_destination_state(
                     from kafka import KafkaProducer
                     if dlq_producer is None:
                         dlq_producer = KafkaProducer(
-                            bootstrap_servers=["localhost:9092"],
+                            bootstrap_servers=[os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")],
                             value_serializer=lambda v: json.dumps(v).encode("utf-8"),
                         )
+                    target_dlq = os.environ.get("PAYSIM_DLQ_TOPIC", "financial_transactions_paysim_dlq")
                     for r in late_rows.to_dict(orient="records"):
                         dlq_record = {
                             "raw_value": json.dumps(r, default=str),
                             "reason_code": "LATE_EVENT",
                             "ingested_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
                         }
-                        dlq_producer.send("financial_transactions_paysim_dlq", value=dlq_record)
+                        dlq_producer.send(target_dlq, value=dlq_record)
                     dlq_producer.flush()
                 except Exception as ex:
                     print(f"Warning: Failed to route late event to DLQ: {ex}")
@@ -489,8 +504,12 @@ def update_destination_state(
         except Exception:
             pass
 
-    for df in out_dfs:
-        yield df
+    if not out_dfs:
+        cols = [f.name for f in PAYSIM_OUTPUT_SCHEMA.fields]
+        yield pd.DataFrame(columns=cols)
+    else:
+        for df in out_dfs:
+            yield df
 
 
 def create_spark_session(app_name: str = "PaySimStreamingConsumer") -> SparkSession:
@@ -503,6 +522,8 @@ def create_spark_session(app_name: str = "PaySimStreamingConsumer") -> SparkSess
         .config("spark.sql.streaming.stateStore.providerClass", "org.apache.spark.sql.execution.streaming.state.RocksDBStateStoreProvider")
         .config("spark.driver.host", "localhost")
         .config("spark.driver.bindAddress", "localhost")
+        .config("spark.pyspark.python", sys.executable)
+        .config("spark.pyspark.driver.python", sys.executable)
         .getOrCreate()
     )
 
@@ -523,6 +544,11 @@ def build_streaming_pipeline(
     max_offsets_per_trigger: Optional[int] = None,
 ) -> Any:
     """Build the end-to-end streaming query with DLQ routing, stateless & stateful features."""
+    if dlq_topic:
+        os.environ["PAYSIM_DLQ_TOPIC"] = dlq_topic
+    if bootstrap_servers:
+        os.environ["KAFKA_BOOTSTRAP_SERVERS"] = bootstrap_servers
+
     stream_reader = (
         spark.readStream.format("kafka")
         .option("kafka.bootstrap.servers", bootstrap_servers)

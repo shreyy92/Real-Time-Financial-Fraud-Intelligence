@@ -8,16 +8,16 @@ This module implements the production-grade Spark Structured Streaming feature e
 
 - **Kafka Topics**:
   - `financial_transactions_paysim`: Inbound raw financial transaction stream.
-  - `financial_features_paysim`: Outbound enriched feature stream (41-column Tier A schema).
+  - `financial_features_paysim`: Outbound enriched feature stream (42-column Tier A schema).
   - `financial_transactions_paysim_dlq`: Dead Letter Queue for malformed, invalid, or late events.
 - **State Store Provider**:
   - `org.apache.spark.sql.execution.streaming.state.RocksDBStateStoreProvider` (format version 5).
-  - RocksDB offloads state to local disk / SST files, easily supporting multi-million unique destination accounts (`nameDest`) without JVM heap exhaustion.
+  - RocksDB offloads state to local disk / SST files, supporting multi-million unique destination accounts (`nameDest`) without JVM heap exhaustion.
 - **Feature Version**: `v1.0`
 
 ---
 
-## 2. Output Schema & Contract (41 Columns)
+## 2. Output Schema & Contract (42 Columns)
 
 The output stream strictly conforms to `data/features/paysim_features.parquet` and `MEMBER3_OUTPUT_CONTRACT.md`:
 
@@ -28,6 +28,10 @@ The output stream strictly conforms to `data/features/paysim_features.parquet` a
 5. **Stateful Trailing Window Aggregates**:
    - 24-Hour Windows: `dest_txn_count_prev_24h`, `dest_amount_sum_prev_24h`.
    - 168-Hour (7-Day) Windows: `dest_txn_count_prev_168h`, `dest_amount_sum_prev_168h`.
+6. **Metadata**: `feature_version` (`v1.0`).
+
+### Tier B Exclusion
+Post-transaction balance fields (`newbalanceOrig`, `newbalanceDest`) are excluded to prevent outcome leakage into the real-time feature vector, as specified in `member2_spark/docs/OUTPUT_CONTRACT.md`.
 
 ### `split` Partitioning
 In accordance with `member2_spark/docs/OUTPUT_CONTRACT.md`:
@@ -46,16 +50,27 @@ JSON outputs preserve explicit `null` fields (`ignoreNullFields = false`).
 
 Malformed or out-of-order events are routed to `financial_transactions_paysim_dlq` without terminating the pipeline.
 
-| Reason Code | Condition | Example |
-|---|---|---|
-| `SCHEMA_VIOLATION` / `MALFORMED_JSON` | Unparseable JSON syntax | `{"step": 1, ...` (truncated/corrupted) |
-| `MISSING_FIELD` | Missing required payload field | `{"type": "TRANSFER", "amount": 100.0}` (missing `step`) |
-| `BAD_STEP_TYPE` | `step` field is non-integer / string | `{"step": "ten", "type": "TRANSFER"}` |
-| `BAD_TYPE` | `type` not in allowed set or bad data type | `{"type": "TELEPORT", "amount": 500.0}` |
-| `NEGATIVE_AMOUNT` | `amount < 0.0` | `{"amount": -25.0}` |
-| `INVALID_STEP` / `ZERO_STEP` | `step < 1` or `step > 743` (or `9999`) | `{"step": 0}` |
-| `INVALID_LABEL` | `isFraud` not in `{0, 1}` | `{"isFraud": 99}` |
-| `LATE_EVENT` | Out-of-order event arriving behind high watermark | `step < max(committed_last_step, pending_step)` |
+### DLQ Payload Schema
+```json
+{
+  "raw_value": "<raw_unmodified_json_string>",
+  "reason_code": "<REASON_CODE>",
+  "ingested_at": "<ISO-8601 UTC timestamp>"
+}
+```
+
+### Reason Codes
+| Reason Code | Description |
+|---|---|
+| `MALFORMED_JSON` | Payload is not valid JSON or not a JSON object |
+| `MISSING_FIELD` | One or more required fields are missing or null |
+| `BAD_STEP_TYPE` | Field 'step' is not an integer (e.g. string or boolean) |
+| `BAD_TYPE` | Field 'type' is not one of the allowed transaction types (TRANSFER, CASH_OUT, PAYMENT, CASH_IN, DEBIT) |
+| `BAD_FIELD_TYPE` | A non-step field has the wrong JSON type (e.g. amount is non-numeric string or boolean, name is non-string) |
+| `NEGATIVE_AMOUNT` | Transaction amount is negative (< 0.0) |
+| `INVALID_STEP` | Simulation step is out of bounds (step < 1, step > 743, or step == 9999) |
+| `INVALID_LABEL` | Target label 'isFraud' is not in {0, 1} |
+| `LATE_EVENT` | Transaction timestamp/step is strictly older than key's committed latest or pending step |
 
 ### Late-Event Guard Rule
 To guard against race conditions and mid-step ties, the streaming state store maintains:
@@ -65,14 +80,14 @@ To guard against race conditions and mid-step ties, the streaming state store ma
 
 ---
 
-## 4. Crash Recovery & Deduplication
+## 4. Crash Recovery & Limitations
 
 - Spark Structured Streaming provides **at-least-once** delivery guarantees.
 - In crash tests involving hard kills (`taskkill /F /T`) mid-batch:
   - RocksDB restores state store checkpoints exactly up to the last committed batch.
   - Spark re-executes the uncommitted batch upon restart, producing byte-identical duplicate records in Kafka.
   - Downstream consumers **must deduplicate on `txn_id`**.
-- Verified Parity: 20,000 transactions and 300 long-span keys (3,979 rows) tested with 0 mismatches across all 41 columns vs `data/features/paysim_features.parquet`.
+- **Known Recovery Limitation**: Under abrupt termination during metadata commit writing in Spark 4.1.1, an uncommitted orphan offset file (`offsets/N` without `commits/N`) can cause `NullPointerException` on restart if not rolled back prior to starting the query.
 
 ---
 
@@ -96,16 +111,7 @@ python member3_streaming/producer_paysim.py --limit 20000 --delay 0
 python -m member3_streaming.consumer_paysim --bootstrap-servers localhost:9092
 ```
 
-### Run Verified Crash Recovery Tests
-```bash
-# 20,000-row crash test:
-python member3_streaming/run_verified_crash_test.py
-
-# Long-span keys crash test (window expiry exercised):
-python member3_streaming/run_span_crash_test.py
-```
-
 ### Run Pytest Suite
 ```bash
-pytest member3_streaming/tests/ -v
+pytest member3_streaming/tests/ -v --durations=0
 ```
