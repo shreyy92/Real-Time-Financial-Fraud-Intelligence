@@ -7,7 +7,7 @@
 | 3 | passed | c742673 | member3_streaming/reports/C03_report.md | 2026-10-13 |
 | 4R | passed | 0140926 | member3_streaming/reports/C04R_report.md | 2026-10-13 |
 | 5 | passed | 7b6bfb8 | member3_streaming/reports/C05_report.md | 2026-10-13 |
-| 6 | pending | - | member3_streaming/reports/C06_report.md | 2026-10-13 |
+| 6 | passed | 417b0d4 | member3_streaming/reports/C06_report.md | 2026-10-13 |
 | 7 | pending | 05b8430 | member3_streaming/reports/C07_report.md | 2026-10-13 |
 | 8 | pending | - | member3_streaming/reports/C08_report.md | 2026-10-13 |
 | 9 | pending | - | member3_streaming/reports/C09_report.md | 2026-10-13 |
