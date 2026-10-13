@@ -100,6 +100,7 @@ def run_real_streaming_b_mode(tolerance: float = 1e-6):
     test_features = [
         "step_hour", "hour_sin", "hour_cos", "sim_day", "history_window_complete_flag",
         "type_transfer", "type_cash_out", "type_payment", "type_cash_in", "type_debit",
+        "split",
         "amount_log1p", "amount_zero_flag", "amt_to_oldbalOrg", "amt_to_oldbalDest",
         "orig_drain_flag", "amount_exceeds_orig_balance_flag", "orig_balance_zero_flag",
         "dest_balance_zero_flag", "dest_prior_txn_count", "dest_first_seen_flag",
@@ -115,7 +116,10 @@ def run_real_streaming_b_mode(tolerance: float = 1e-6):
         b_vals = joined[f"{feat}_batch"]
         null_mask = s_vals.isna() != b_vals.isna()
         valid_mask = (~s_vals.isna()) & (~b_vals.isna())
-        val_mask = np.abs(s_vals[valid_mask].astype(float) - b_vals[valid_mask].astype(float)) > tolerance
+        if feat == "split":
+            val_mask = s_vals[valid_mask] != b_vals[valid_mask]
+        else:
+            val_mask = np.abs(s_vals[valid_mask].astype(float) - b_vals[valid_mask].astype(float)) > tolerance
         cnt = int(null_mask.sum() + val_mask.sum())
         total_mismatches += cnt
         status = "OK" if cnt == 0 else f"MISMATCH ({cnt})"

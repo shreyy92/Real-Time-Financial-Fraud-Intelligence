@@ -48,6 +48,8 @@ env/
 # ============================================================
 scratch/
 output/*.parquet
+member3_streaming/checkpoints/
+member3_streaming/scratch_*
 
 # ============================================================
 # SECRETS / ENVIRONMENT VARIABLES

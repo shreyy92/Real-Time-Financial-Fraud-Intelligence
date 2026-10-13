@@ -13,6 +13,8 @@ import math
 import json
 import argparse
 import datetime
+import time
+import subprocess
 from typing import Iterator, Tuple, List, Dict, Any, Optional
 
 import pandas as pd
@@ -70,6 +72,7 @@ PAYSIM_OUTPUT_SCHEMA = StructType([
     StructField("type_payment", ByteType(), True),
     StructField("type_cash_in", ByteType(), True),
     StructField("type_debit", ByteType(), True),
+    StructField("split", StringType(), True),
     StructField("amount_log1p", DoubleType(), True),
     StructField("amount_zero_flag", ByteType(), True),
     StructField("amt_to_oldbalOrg", DoubleType(), True),
@@ -148,12 +151,17 @@ def classify_dlq_record(raw_val: Optional[str]) -> Tuple[Optional[str], str, boo
         if k not in obj or obj[k] is None:
             return ("MISSING_FIELD", now, False)
 
-    # 2. Bad data type
+    # 2. Bad step data type (step must be an int, not bool, not str)
     if not isinstance(obj["step"], int) or isinstance(obj["step"], bool):
+        return ("BAD_STEP_TYPE", now, False)
+
+    # 3. Bad type / invalid transaction type or bad field types
+    VALID_TYPES = {"TRANSFER", "CASH_OUT", "PAYMENT", "CASH_IN", "DEBIT"}
+    if not isinstance(obj["type"], str) or obj["type"] not in VALID_TYPES:
         return ("BAD_TYPE", now, False)
     if not isinstance(obj["amount"], (int, float)) or isinstance(obj["amount"], bool):
         return ("BAD_TYPE", now, False)
-    if not isinstance(obj["type"], str) or not isinstance(obj["nameOrig"], str) or not isinstance(obj["nameDest"], str):
+    if not isinstance(obj["nameOrig"], str) or not isinstance(obj["nameDest"], str):
         return ("BAD_TYPE", now, False)
     if not isinstance(obj["isFraud"], int) or isinstance(obj["isFraud"], bool):
         return ("BAD_TYPE", now, False)
@@ -214,6 +222,12 @@ def add_stateless_features(df: DataFrame) -> DataFrame:
         .withColumn("type_payment", F.when(F.col("type") == "PAYMENT", 1).otherwise(0).cast("tinyint"))
         .withColumn("type_cash_in", F.when(F.col("type") == "CASH_IN", 1).otherwise(0).cast("tinyint"))
         .withColumn("type_debit", F.when(F.col("type") == "DEBIT", 1).otherwise(0).cast("tinyint"))
+        .withColumn(
+            "split",
+            F.when(F.col("step") <= 500, "train")
+            .when(F.col("step") <= 600, "valid")
+            .otherwise("test"),
+        )
         .withColumn(
             "amount_log1p",
             F.log1p(F.greatest(F.lit(0.0), F.col("amount"))).cast("double"),
@@ -326,9 +340,10 @@ def update_destination_state(
         if pdf.empty:
             continue
 
-        # Check for late events (incoming row step < committed s_last_step)
-        if s_last_step is not None:
-            late_mask = pdf["step"] < s_last_step
+        # Check for late events: incoming row step < max(committed s_last_step, pending_step)
+        ref_step = max([s for s in (s_last_step, pending_step) if s is not None], default=None)
+        if ref_step is not None:
+            late_mask = pdf["step"] < ref_step
             if late_mask.any():
                 late_rows = pdf[late_mask]
                 try:
@@ -340,7 +355,7 @@ def update_destination_state(
                         )
                     for r in late_rows.to_dict(orient="records"):
                         dlq_record = {
-                            "raw_value": json.dumps(r),
+                            "raw_value": json.dumps(r, default=str),
                             "reason_code": "LATE_EVENT",
                             "ingested_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
                         }
@@ -571,7 +586,7 @@ def build_streaming_pipeline(
             func=update_destination_state,
             outputStructType=PAYSIM_OUTPUT_SCHEMA,
             stateStructType=PAYSIM_STATE_SCHEMA,
-            outputMode="Append",
+            outputMode="Update",
             timeoutConf=GroupStateTimeout.NoTimeout,
         )
     )
@@ -607,7 +622,18 @@ def main():
     parser.add_argument("--dlq-topic", type=str, default="financial_transactions_paysim_dlq")
     parser.add_argument("--checkpoint-location", type=str, default="member3_streaming/checkpoints/paysim")
     parser.add_argument("--max-offsets-per-trigger", type=int, default=None)
+    parser.add_argument("--kill-at-record", type=int, default=None)
     args = parser.parse_args()
+
+    if args.kill_at_record is not None:
+        os.environ["CRASH_TEST_KILL_AT_RECORD"] = str(args.kill_at_record)
+        os.environ["SPARK_DRIVER_PID"] = str(os.getpid())
+        counter_file = os.path.abspath("member3_streaming/scratch_crash_counter.txt")
+        if os.path.exists(counter_file):
+            try:
+                os.remove(counter_file)
+            except Exception:
+                pass
 
     spark = create_spark_session()
     print("SparkSession initialized. Starting PaySim streaming consumer...")
