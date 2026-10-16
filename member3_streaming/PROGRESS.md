@@ -4,12 +4,13 @@
 |---|---|---|---|---|
 | 1R | passed | c894b76 | member3_streaming/reports/C01R_report.md | 2026-10-13 |
 | 2R | passed | 64dc552 | member3_streaming/reports/C02R_report.md | 2026-10-13 |
-| 3 | passed | c742673 | member3_streaming/reports/C03_report.md | 2026-10-13 |
-| 4R | passed | 0140926 | member3_streaming/reports/C04R_report.md | 2026-10-13 |
-| 5 | passed | 7b6bfb8 | member3_streaming/reports/C05_report.md | 2026-10-13 |
-| 6 | passed | 417b0d4 | member3_streaming/reports/C06_report.md | 2026-10-13 |
-| 7 | passed | 7caa3f3 | member3_streaming/reports/C07_report.md | 2026-10-13 |
-| 8 | passed | 492823a | member3_streaming/reports/C08_report.md | 2026-10-13 |
+| 3 | folded into 2R.9 (commit 64dc552) | 64dc552 | member3_streaming/reports/C03_report.md | 2026-10-13 |
+| 4R | passed | e1331ce | member3_streaming/reports/C04R_report.md | 2026-10-13 |
+| 5 | passed | 5e32ac4 | member3_streaming/reports/C05_report.md | 2026-10-13 |
+| 6 | passed | 5dbaff9 | member3_streaming/reports/C06_report.md | 2026-10-13 |
+| 7 | passed | a7444c4 | member3_streaming/reports/C07_report.md | 2026-10-13 |
+| 8 | passed | 0d22cbb | member3_streaming/reports/C08_report.md | 2026-10-13 |
+| R1-R5 | passed | <filled next commit> | member3_streaming/reports/R1_R5_repair_report.md | 2026-10-16 |
 | 9 | pending | - | member3_streaming/reports/C09_report.md | 2026-10-13 |
 | 10 | pending | - | member3_streaming/reports/C10_report.md | 2026-10-13 |
 | 11 | pending | - | member3_streaming/reports/C11_report.md | 2026-10-13 |

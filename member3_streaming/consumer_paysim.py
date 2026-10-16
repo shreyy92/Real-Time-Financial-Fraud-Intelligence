@@ -135,7 +135,7 @@ DLQ_REASON_CODES = {
     "BAD_TYPE": "Field 'type' is not one of the allowed transaction types (TRANSFER, CASH_OUT, PAYMENT, CASH_IN, DEBIT)",
     "BAD_FIELD_TYPE": "A non-step field has the wrong JSON type (e.g. amount is non-numeric string or boolean, name is non-string)",
     "NEGATIVE_AMOUNT": "Transaction amount is negative (< 0.0)",
-    "INVALID_STEP": "Simulation step is out of bounds (step < 1, step > 743, or step == 9999)",
+    "INVALID_STEP": "Simulation step is out of bounds (step < 1 or step > 743)",
     "INVALID_LABEL": "Target label 'isFraud' is not in {0, 1}",
     "LATE_EVENT": "Transaction timestamp/step is strictly older than key's committed latest or pending step",
 }
@@ -184,9 +184,9 @@ def classify_dlq_record(raw_val: Optional[str]) -> Tuple[Optional[str], str, boo
     if float(obj["amount"]) < 0.0:
         return ("NEGATIVE_AMOUNT", now, False)
 
-    # 6. Out-of-bounds simulation step (step == 9999 or not in 1..743)
+    # 6. Out-of-bounds simulation step (not in 1..743)
     step_num = int(obj["step"])
-    if step_num == 9999 or step_num < 1 or step_num > 743:
+    if step_num < 1 or step_num > 743:
         return ("INVALID_STEP", now, False)
 
     # 7. Invalid target label (isFraud not in {0, 1})
@@ -525,9 +525,11 @@ def create_spark_session(app_name: str = "PaySimStreamingConsumer") -> SparkSess
         .appName(app_name)
         .config("spark.jars.packages", "org.apache.spark:spark-sql-kafka-0-10_2.13:4.1.1")
         .config("spark.sql.shuffle.partitions", "2")
-        .config("spark.sql.streaming.stateStore.providerClass", "org.apache.spark.sql.execution.streaming.state.RocksDBStateStoreProvider")
-        .config("spark.driver.host", "localhost")
-        .config("spark.driver.bindAddress", "localhost")
+        .config("spark.sql.streaming.stateStore.providerClass", os.getenv("SPARK_STATE_STORE_PROVIDER", "org.apache.spark.sql.execution.streaming.state.RocksDBStateStoreProvider"))
+        .config("spark.driver.host", "127.0.0.1")
+        .config("spark.driver.bindAddress", "127.0.0.1")
+        .config("spark.driver.port", "0")
+        .config("spark.blockManager.port", "0")
         .config("spark.pyspark.python", sys.executable)
         .config("spark.pyspark.driver.python", sys.executable)
         .getOrCreate()

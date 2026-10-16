@@ -43,8 +43,9 @@ def test_contract_dlq_codes_match_code_constants():
     contract_codes = set(r[0] for r in dlq_rows)
 
     code_constants = set(DLQ_REASON_CODES.keys())
-    assert code_constants.issubset(contract_codes), (
-        f"Missing DLQ codes in contract: {code_constants - contract_codes}"
+    assert contract_codes == code_constants, (
+        f"DLQ codes set mismatch! Missing in contract: {code_constants - contract_codes}, "
+        f"unexpected in contract: {contract_codes - code_constants}"
     )
 
 

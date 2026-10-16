@@ -68,7 +68,7 @@ Malformed or out-of-order events are routed to `financial_transactions_paysim_dl
 | `BAD_TYPE` | Field 'type' is not one of the allowed transaction types (TRANSFER, CASH_OUT, PAYMENT, CASH_IN, DEBIT) |
 | `BAD_FIELD_TYPE` | A non-step field has the wrong JSON type (e.g. amount is non-numeric string or boolean, name is non-string) |
 | `NEGATIVE_AMOUNT` | Transaction amount is negative (< 0.0) |
-| `INVALID_STEP` | Simulation step is out of bounds (step < 1, step > 743, or step == 9999) |
+| `INVALID_STEP` | Simulation step is out of bounds (step < 1 or step > 743) |
 | `INVALID_LABEL` | Target label 'isFraud' is not in {0, 1} |
 | `LATE_EVENT` | Transaction timestamp/step is strictly older than key's committed latest or pending step |
 
@@ -87,7 +87,10 @@ To guard against race conditions and mid-step ties, the streaming state store ma
   - RocksDB restores state store checkpoints exactly up to the last committed batch.
   - Spark re-executes the uncommitted batch upon restart, producing byte-identical duplicate records in Kafka.
   - Downstream consumers **must deduplicate on `txn_id`**.
-- **Known Recovery Limitation**: Under abrupt termination during metadata commit writing in Spark 4.1.1, an uncommitted orphan offset file (`offsets/N` without `commits/N`) can cause `NullPointerException` on restart if not rolled back prior to starting the query.
+- **State Store Provider Independence & Recovery Workaround**:
+  - Stateless Kafka streaming queries replay uncommitted batches without NPE.
+  - Stateful streaming queries using `applyInPandasWithState` reproduce `java.lang.NullPointerException: Cannot invoke "scala.collection.IterableOps.map(scala.Function1)" because the return value of "scala.Option.get()" is null at org.apache.spark.sql.kafka010.KafkaMicroBatchStream$.metrics` under **both** `RocksDBStateStoreProvider` and `HDFSBackedStateStoreProvider` (upstream ticket not verified).
+  - Removing the uncommitted orphan `offsets/N` file before restarting allows clean recovery from `commits/(N-1)`.
 
 ---
 

@@ -17,7 +17,7 @@ The handoff documentation and ready-to-send message for Member 4 were created at
 - **Output Schema**: 42 columns (100% parity with batch Tier A feature store)
 - **Primary Deduplication Key**: `txn_id`
 - **Pipeline Startup Instructions**: CLI command for starting the streaming consumer
-- **Operational Guarantees & Known Limitations**: At-least-once delivery; byte-identical duplicates; requirement for downstream deduplication on `txn_id`; Apache Spark 4.1.1 uncommitted orphan offset metadata recovery workaround on crash (`SPARK-57438`).
+- **Operational Guarantees & Known Limitations**: At-least-once delivery; byte-identical duplicates; requirement for downstream deduplication on `txn_id`; Apache Spark 4.1.1 uncommitted orphan offset metadata recovery workaround on crash (Spark 4.1.1 NullPointerException in KafkaMicroBatchStream.metrics when replaying an uncommitted batch (upstream ticket not verified)).
 - **Direct Integration Question**: "Do you want to consume this Kafka topic, or do you need a different sink (e.g. Parquet, Delta Lake, gRPC)?"
 
 ---

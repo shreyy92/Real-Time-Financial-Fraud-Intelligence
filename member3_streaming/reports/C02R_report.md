@@ -12,7 +12,7 @@
    - On restart, Spark re-executes batch N without calling `latestOffset()` on the Kafka source.
    - In Spark 4.1.1, `KafkaMicroBatchStream.metrics()` attempts to evaluate `latestPartitionOffsets`, which is `null` because `latestOffset()` was never called for that trigger.
    - This throws: `java.lang.NullPointerException: Cannot invoke "scala.collection.IterableOps.map(scala.Function1)" because the return value of "scala.Option.get()" is null at org.apache.spark.sql.kafka010.KafkaMicroBatchStream$.metrics(KafkaMicroBatchStream.scala:520)`.
-   - Real Spark Issue Tracking: `SPARK-57438` / `SPARK-55236` (*NullPointerException in KafkaMicroBatchStream.metrics when latestPartitionOffsets is uninitialized*).
+   - Root cause: Spark 4.1.1 NullPointerException in KafkaMicroBatchStream.metrics when replaying an uncommitted batch (upstream ticket not verified).
 3. **StateStoreProvider Independence**:
    - The same restart failure was reproduced with default `org.apache.spark.sql.execution.streaming.state.HDFSBackedStateStoreProvider`.
    - The identical NPE was produced in `KafkaMicroBatchStream.metrics`, confirming conclusively that the bug resides in the Spark Kafka connector progress reporting layer, not in `RocksDBStateStoreProvider`.
@@ -100,7 +100,7 @@ STDERR: 	at org.apache.spark.sql.execution.streaming.runtime.MicroBatchExecution
 STDERR: 	at org.apache.spark.sql.execution.streaming.runtime.MicroBatchExecution.runActivatedStream(MicroBatchExecution.scala:461)
 ```
 **Conclusion**: Identical failure. Proves issue is strictly in `KafkaMicroBatchStream.metrics`, unrelated to RocksDB state store.
-**Real Spark Issue ID**: `SPARK-57438` / `SPARK-55236` (*NullPointerException in KafkaMicroBatchStream.metrics when latestPartitionOffsets is uninitialized*).
+**Upstream Defect**: Spark 4.1.1 NullPointerException in KafkaMicroBatchStream.metrics when replaying an uncommitted batch (upstream ticket not verified).
 
 ### 2R.8: Pass Conditions (20,000 Rows)
 - **Total output records received**: `20,236`

@@ -33,7 +33,7 @@ The test suite was re-architected into modular, isolated test suites with zero c
 Each streaming test is marked with `@pytest.mark.slow`, generates unique ephemeral Kafka topics (`in_<uuid>`, `out_<uuid>`, `dlq_<uuid>`), creates an isolated checkpoint directory, starts its **OWN real Spark Structured Streaming query**, performs its assertions, hard-terminates the query, and cleans up all Kafka topics and checkpoint files:
 1. `test_real_streaming_parity`: Starts real Spark Structured Streaming query; feeds 100 rows from `paysim_features.parquet`; consumes real output from Kafka; asserts **0 mismatches** across all 13 stateful feature columns vs batch ground truth.
 2. `test_real_streaming_late_event_routing`: Starts real Spark Structured Streaming query; sends step 5 event and waits for commitment; then sends step 3 event for the same key; validates that the step 3 event is caught by the late event guard and routed to the DLQ topic with `reason_code == "LATE_EVENT"`.
-3. `test_real_checkpoint_recovery`: Starts real Spark Structured Streaming query with `max_offsets_per_trigger=10`; processes 10 rows (batch 0); hard-kills the query process mid-stream with `taskkill /F /T`; rolls back the uncommitted orphan offset (SPARK-57438 workaround); produces 20 more rows; restarts consumer from the same checkpoint; verifies all 40 unique transactions are received in Kafka output, zero records are lost (`missing == 0`), and duplicate records across the crash boundary are 100% byte-identical.
+3. `test_real_checkpoint_recovery`: Starts real Spark Structured Streaming query with `max_offsets_per_trigger=10`; processes 10 rows (batch 0); hard-kills the query process mid-stream with `taskkill /F /T`; rolls back the uncommitted orphan offset (workaround for Spark 4.1.1 NullPointerException in KafkaMicroBatchStream.metrics when replaying an uncommitted batch (upstream ticket not verified)); produces 20 more rows; restarts consumer from the same checkpoint; verifies all 40 unique transactions are received in Kafka output, zero records are lost (`missing == 0`), and duplicate records across the crash boundary are 100% byte-identical.
 
 ### B. Negative-Control Test (`test_negative_control_parity_failure` in `test_fast_unit.py`)
 Proves the parity assertion logic can fail: intentionally corrupts one feature value (`dest_prior_amount_sum = 9999.0`), runs the exact parity assertion function, and verifies that `AssertionError: Parity check failed: dest_prior_amount_sum: 1 mismatches` is raised.
@@ -57,7 +57,7 @@ Proves the parity assertion logic can fail: intentionally corrupts one feature v
    - Standardized to `{"raw_value": ..., "reason_code": ..., "ingested_at": ...}` everywhere.
    - All 9 reason codes documented from code constants.
 4. **Crash Recovery & Limitation Documented**:
-   - Documented at-least-once semantics, mandatory downstream deduplication on `txn_id`, and the Apache Spark 4.1.1 micro-batch metadata recovery limitation (`SPARK-57438`).
+   - Documented at-least-once semantics, mandatory downstream deduplication on `txn_id`, and the Apache Spark 4.1.1 micro-batch metadata recovery limitation (Spark 4.1.1 NullPointerException in KafkaMicroBatchStream.metrics when replaying an uncommitted batch (upstream ticket not verified)).
 
 ---
 

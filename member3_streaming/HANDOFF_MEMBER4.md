@@ -63,7 +63,7 @@ for msg in consumer:
   - **Dead-Letter Queue (DLQ)**: Malformed JSON, bad types, negative amounts, invalid steps, and late out-of-order events are routed to `financial_transactions_paysim_dlq` without interrupting active streaming queries.
 - **Known Limitations**:
   - **Duplicate Mitigation**: Downstream systems must deduplicate on `txn_id`.
-  - **Crash Recovery Workaround**: In Apache Spark 4.1.1 on Windows (`SPARK-57438`), an abrupt mid-batch hard crash (`taskkill /F /T`) can leave an uncommitted trailing offset file in checkpoint storage (`offsets/N` without matching `commits/N`). Restarting requires rolling back the uncommitted trailing offset before starting the consumer.
+  - **Crash Recovery Workaround**: In Spark 4.1.1 NullPointerException in KafkaMicroBatchStream.metrics when replaying an uncommitted batch (upstream ticket not verified), an abrupt mid-batch hard crash (`taskkill /F /T`) can leave an uncommitted trailing offset file in checkpoint storage (`offsets/N` without matching `commits/N`). Restarting requires rolling back the uncommitted trailing offset before starting the consumer.
 
 ---
 

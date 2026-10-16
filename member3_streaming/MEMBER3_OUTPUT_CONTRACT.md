@@ -114,7 +114,7 @@ The streaming output schema matches the batch feature store contract (`data/feat
 | `BAD_TYPE` | Field 'type' is not one of the allowed transaction types (TRANSFER, CASH_OUT, PAYMENT, CASH_IN, DEBIT) |
 | `BAD_FIELD_TYPE` | A non-step field has the wrong JSON type (e.g. amount is non-numeric string or boolean, name is non-string) |
 | `NEGATIVE_AMOUNT` | Transaction amount is negative (< 0.0) |
-| `INVALID_STEP` | Simulation step is out of bounds (step < 1, step > 743, or step == 9999) |
+| `INVALID_STEP` | Simulation step is out of bounds (step < 1 or step > 743) |
 | `INVALID_LABEL` | Target label 'isFraud' is not in {0, 1} |
 | `LATE_EVENT` | Transaction timestamp/step is strictly older than key's committed latest or pending step |
 
@@ -134,9 +134,12 @@ The streaming feature engine strictly implements **Tier A Features** (temporal, 
 1. **Delivery Guarantee**:
    The pipeline operates under **at-least-once** delivery semantics. Downstream consumers must implement idempotent deduplication using `txn_id`.
 2. **State Store Consistency**:
-   The engine uses RocksDB (`org.apache.spark.sql.execution.streaming.state.RocksDBStateStoreProvider`). When the engine crashes abruptly (e.g. `SIGKILL` / `taskkill /F /T`), the RocksDB state store restarts from the last committed micro-batch checkpoint.
-3. **Recovery Limitation & Spark 4.1.1 Micro-Batch Workaround**:
-   In Apache Spark Structured Streaming, if a process terminates hard while writing checkpoint offset metadata, an uncommitted orphan offset file (`offsets/N` without matching `commits/N`) can cause restart failures with `NullPointerException` in `MicroBatchExecution.constructNextBatch` unless the uncommitted trailing offset file is rolled back prior to restart. Downstream systems must not assume zero-duplicate exactly-once semantics without deduplication on `txn_id`.
+   The engine uses RocksDB (`org.apache.spark.sql.execution.streaming.state.RocksDBStateStoreProvider`). When the engine crashes abruptly (e.g. `SIGKILL` / `taskkill /F /T`), the state store restarts from the last committed micro-batch checkpoint.
+3. **State Store Provider Independence & Recovery Limitation**:
+   - In a minimal stateless Kafka-to-Kafka passthrough query (`readStream` -> `writeStream`), replaying an uncommitted batch (`offsets/N` without `commits/N`) did **not** reproduce the NPE.
+   - In stateful streaming queries using `applyInPandasWithState`, replaying an uncommitted batch (`offsets/N` without `commits/N`) reproduces `java.lang.NullPointerException: Cannot invoke "scala.collection.IterableOps.map(scala.Function1)" because the return value of "scala.Option.get()" is null at org.apache.spark.sql.kafka010.KafkaMicroBatchStream$.metrics` under **both** `RocksDBStateStoreProvider` and `HDFSBackedStateStoreProvider` (tested on fresh checkpoints for each provider).
+   - Thus, this defect is not tied to RocksDB, but affects uncommitted batch replay of stateful Kafka streaming queries in Spark 4.1.1.
+   - The verified operational recovery workaround for stateful pipelines in Spark 4.1.1 is to roll back the orphan uncommitted `offsets/N` file before restarting the query, allowing Spark to resume safely from the last fully committed batch `commits/(N-1)`. Downstream systems must deduplicate on `txn_id`.
 
 ---
 

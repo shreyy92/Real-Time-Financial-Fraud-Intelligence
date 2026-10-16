@@ -91,7 +91,7 @@ def main():
     print(f"Is {count_at_kill} a multiple of 500? {count_at_kill % 500 == 0} (Remainder: {count_at_kill % 500})")
     print(f"=======================================================")
 
-    # Circumvent SPARK-55271 (KafkaMicroBatchStream.metrics NPE on uncommitted re-exec in Spark 4.1.1)
+    # Circumvent Spark 4.1.1 NullPointerException in KafkaMicroBatchStream.metrics when replaying an uncommitted batch (upstream ticket not verified)
     for q in ["features", "dlq"]:
         q_offsets = os.path.join(chk_dir, q, "offsets")
         q_commits = os.path.join(chk_dir, q, "commits")
@@ -100,7 +100,7 @@ def main():
                 if f.isdigit():
                     commit_file = os.path.join(q_commits, f)
                     if not os.path.exists(commit_file):
-                        print(f"Removing uncommitted offset file {q}/offsets/{f} (SPARK-55271 workaround)...")
+                        print(f"Removing uncommitted offset file {q}/offsets/{f} (orphan offset workaround)...")
                         try:
                             os.remove(os.path.join(q_offsets, f))
                             crc = os.path.join(q_offsets, f".{f}.crc")
