@@ -74,10 +74,10 @@ def main():
     df = pd.read_parquet(input_path)
 
     print("Sorting by (TransactionDT, TransactionID) with stable sort...")
-    df = df.sort_values(by=["TransactionDT", "TransactionID"], ascending=[True, True], kind="stable")
-
+    sort_indices = np.lexsort((df["TransactionID"].values, df["TransactionDT"].values))
     if args.limit > 0:
-        df = df.head(args.limit)
+        sort_indices = sort_indices[:args.limit]
+    df = df.iloc[sort_indices]
 
     total = len(df)
     print(f"Prepared {total} events to produce (key: {args.key_field}).")

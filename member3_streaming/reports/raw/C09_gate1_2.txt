@@ -1,0 +1,332 @@
+================================================================================
+GATE 1.2: ORACLE TIE AND WINDOW BOUNDARY TEST
+Real Kafka: yes (127.0.0.1:9092)
+Real Spark query: yes (PySpark Structured Streaming via consumer_ieee.py)
+================================================================================
+Generated 11 synthetic test records for single card_proxy_id.
+
+================================================================================
+NEGATIVE CONTROL (Proving Oracle Test Can Detect Incorrect Logic)
+================================================================================
+Applying OLD draft formula: dt >= cur_dt - W (improperly includes same-second rows)...
+Row 1 (TransactionID 1002, DT=100000):
+  Old draft c_1h: 1 (wrongly counted row 1001 in same second)
+  Correct oracle c_1h: 0 (strictly excludes same-second row 1001)
+Negative control PASSED: Proved the assertion logic catches same-second window leakage!
+
+Computing batch ground truth via Member 2's add_ieee_card_history_features...
+WARNING: Using incubator modules: jdk.incubator.vector
+:: loading settings :: url = jar:file:/C:/Users/akshi/AppData/Local/Programs/Python/Python312/Lib/site-packages/pyspark/jars/ivy-2.5.3.jar!/org/apache/ivy/core/settings/ivysettings.xml
+Ivy Default Cache set to: C:\Users\akshi\.ivy2.5.2\cache
+The jars for the packages stored in: C:\Users\akshi\.ivy2.5.2\jars
+org.apache.spark#spark-sql-kafka-0-10_2.13 added as a dependency
+:: resolving dependencies :: org.apache.spark#spark-submit-parent-8847b6bd-a51c-425f-9b25-9021405491bc;1.0
+	confs: [default]
+	found org.apache.spark#spark-sql-kafka-0-10_2.13;4.1.1 in central
+	found org.apache.spark#spark-token-provider-kafka-0-10_2.13;4.1.1 in central
+	found org.apache.kafka#kafka-clients;3.9.1 in central
+	found org.lz4#lz4-java;1.8.0 in central
+	found org.xerial.snappy#snappy-java;1.1.10.8 in central
+	found org.slf4j#slf4j-api;2.0.17 in central
+	found org.apache.hadoop#hadoop-client-runtime;3.4.2 in central
+	found org.apache.hadoop#hadoop-client-api;3.4.2 in central
+	found com.google.code.findbugs#jsr305;3.0.0 in central
+	found org.scala-lang.modules#scala-parallel-collections_2.13;1.2.0 in central
+	found org.apache.commons#commons-pool2;2.12.1 in central
+:: resolution report :: resolve 572ms :: artifacts dl 32ms
+	:: modules in use:
+	com.google.code.findbugs#jsr305;3.0.0 from central in [default]
+	org.apache.commons#commons-pool2;2.12.1 from central in [default]
+	org.apache.hadoop#hadoop-client-api;3.4.2 from central in [default]
+	org.apache.hadoop#hadoop-client-runtime;3.4.2 from central in [default]
+	org.apache.kafka#kafka-clients;3.9.1 from central in [default]
+	org.apache.spark#spark-sql-kafka-0-10_2.13;4.1.1 from central in [default]
+	org.apache.spark#spark-token-provider-kafka-0-10_2.13;4.1.1 from central in [default]
+	org.lz4#lz4-java;1.8.0 from central in [default]
+	org.scala-lang.modules#scala-parallel-collections_2.13;1.2.0 from central in [default]
+	org.slf4j#slf4j-api;2.0.17 from central in [default]
+	org.xerial.snappy#snappy-java;1.1.10.8 from central in [default]
+	---------------------------------------------------------------------
+	|                  |            modules            ||   artifacts   |
+	|       conf       | number| search|dwnlded|evicted|| number|dwnlded|
+	---------------------------------------------------------------------
+	|      default     |   11  |   0   |   0   |   0   ||   11  |   0   |
+	---------------------------------------------------------------------
+:: retrieving :: org.apache.spark#spark-submit-parent-8847b6bd-a51c-425f-9b25-9021405491bc
+	confs: [default]
+	0 artifacts copied, 11 already retrieved (0kB/17ms)
+26/10/16 17:50:05 WARN NativeCodeLoader: Unable to load native-hadoop library for your platform... using builtin-java classes where applicable
+Using Spark's default log4j profile: org/apache/spark/log4j2-defaults.properties
+Setting default log level to "WARN".
+To adjust logging level use sc.setLogLevel(newLevel). For SparkR, use setLogLevel(newLevel).
+26/10/16 17:50:21 WARN SparkStringUtils: Truncated the string representation of a plan since it was too large. This behavior can be adjusted by setting 'spark.sql.debug.maxToStringFields'.
+[Stage 0:>                                                        (0 + 11) / 11][Stage 2:>                                                          (0 + 1) / 1]                                                                                26/10/16 17:50:26 WARN SparkEnv: Exception while deleting Spark temp dir: C:\Users\akshi\AppData\Local\Temp\spark-b9183d67-b1d5-4ae8-958e-78cdb43302b3\userFiles-c5121201-859f-4c47-bd09-c38f76bb0994
+java.io.IOException: Failed to delete: C:\Users\akshi\AppData\Local\Temp\spark-b9183d67-b1d5-4ae8-958e-78cdb43302b3\userFiles-c5121201-859f-4c47-bd09-c38f76bb0994\org.xerial.snappy_snappy-java-1.1.10.8.jar
+	at org.apache.spark.network.util.JavaUtils.deleteRecursivelyUsingJavaIO(JavaUtils.java:308)
+	at org.apache.spark.network.util.JavaUtils.deleteRecursively(JavaUtils.java:277)
+	at org.apache.spark.network.util.JavaUtils.deleteRecursivelyUsingJavaIO(JavaUtils.java:291)
+	at org.apache.spark.network.util.JavaUtils.deleteRecursively(JavaUtils.java:277)
+	at org.apache.spark.network.util.JavaUtils.deleteRecursively(JavaUtils.java:248)
+	at org.apache.spark.util.SparkFileUtils.deleteRecursively(SparkFileUtils.scala:158)
+	at org.apache.spark.util.SparkFileUtils.deleteRecursively$(SparkFileUtils.scala:157)
+	at org.apache.spark.util.Utils$.deleteRecursively(Utils.scala:1062)
+	at org.apache.spark.SparkEnv.stop(SparkEnv.scala:131)
+	at org.apache.spark.SparkContext.$anonfun$stop$25(SparkContext.scala:2406)
+	at org.apache.spark.util.Utils$.tryLogNonFatalError(Utils.scala:1314)
+	at org.apache.spark.SparkContext.stop(SparkContext.scala:2406)
+	at org.apache.spark.SparkContext.stop(SparkContext.scala:2308)
+	at org.apache.spark.api.java.JavaSparkContext.stop(JavaSparkContext.scala:552)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)
+	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:569)
+	at py4j.reflection.MethodInvoker.invoke(MethodInvoker.java:244)
+	at py4j.reflection.ReflectionEngine.invoke(ReflectionEngine.java:374)
+	at py4j.Gateway.invoke(Gateway.java:282)
+	at py4j.commands.AbstractCommand.invokeMethod(AbstractCommand.java:132)
+	at py4j.commands.CallCommand.execute(CallCommand.java:79)
+	at py4j.ClientServerConnection.waitForCommands(ClientServerConnection.java:184)
+	at py4j.ClientServerConnection.run(ClientServerConnection.java:108)
+	at java.base/java.lang.Thread.run(Thread.java:840)
+Batch ground truth computed.
+Resetting Kafka topics and checkpoint directory...
+Topics and checkpoints clean.
+Producing 11 synthetic records to test_oracle_ieee_in...
+E:\vs code\projects\data-science\Real-Time-Financial-Fraud-Intelligence\member3_streaming\verify_gate1_2_oracle.py:310: DeprecationWarning: key_serializer does not implement kafka.serializer.Serializer
+  main()
+E:\vs code\projects\data-science\Real-Time-Financial-Fraud-Intelligence\member3_streaming\verify_gate1_2_oracle.py:310: DeprecationWarning: value_serializer does not implement kafka.serializer.Serializer
+  main()
+Produced all records.
+Starting real streaming consumer subprocess writing to test_oracle_ieee_out...
+
+===================================================================================================================
+SIDE-BY-SIDE COMPARISON: STREAMING CONSUMER OUTPUT vs BATCH ORACLE (All 11 Stateful Columns)
+===================================================================================================================
+
+[TransactionID: 1001 | DT: 100000 | Amt: 50.0]
+  Column                     | Stream Output      | Batch Oracle       | Match?  
+  ----------------------------------------------------------------------------
+  card_prior_txn_count       | 0                  | 0                  | PASS    
+  card_first_seen_flag       | 1                  | 1                  | PASS    
+  card_prior_amt_sum         | 0.0000             | 0.0000             | PASS    
+  card_prior_amt_mean        | nan                | nan                | PASS    
+  card_prior_amt_std         | nan                | nan                | PASS    
+  card_prior_amt_max         | nan                | nan                | PASS    
+  amt_zscore_vs_card         | nan                | nan                | PASS    
+  card_secs_since_last_txn   | nan                | nan                | PASS    
+  card_txn_count_1h          | 0                  | 0                  | PASS    
+  card_txn_count_24h         | 0                  | 0                  | PASS    
+  card_txn_count_7d          | 0                  | 0                  | PASS    
+
+[TransactionID: 1002 | DT: 100000 | Amt: 75.0]
+  Column                     | Stream Output      | Batch Oracle       | Match?  
+  ----------------------------------------------------------------------------
+  card_prior_txn_count       | 1                  | 1                  | PASS    
+  card_first_seen_flag       | 0                  | 0                  | PASS    
+  card_prior_amt_sum         | 50.0000            | 50.0000            | PASS    
+  card_prior_amt_mean        | 50.0000            | 50.0000            | PASS    
+  card_prior_amt_std         | nan                | nan                | PASS    
+  card_prior_amt_max         | 50.0000            | 50.0000            | PASS    
+  amt_zscore_vs_card         | nan                | nan                | PASS    
+  card_secs_since_last_txn   | 0.0000             | 0.0000             | PASS    
+  card_txn_count_1h          | 0                  | 0                  | PASS    
+  card_txn_count_24h         | 0                  | 0                  | PASS    
+  card_txn_count_7d          | 0                  | 0                  | PASS    
+
+[TransactionID: 1003 | DT: 100000 | Amt: 100.0]
+  Column                     | Stream Output      | Batch Oracle       | Match?  
+  ----------------------------------------------------------------------------
+  card_prior_txn_count       | 2                  | 2                  | PASS    
+  card_first_seen_flag       | 0                  | 0                  | PASS    
+  card_prior_amt_sum         | 125.0000           | 125.0000           | PASS    
+  card_prior_amt_mean        | 62.5000            | 62.5000            | PASS    
+  card_prior_amt_std         | 17.6777            | 17.6777            | PASS    
+  card_prior_amt_max         | 75.0000            | 75.0000            | PASS    
+  amt_zscore_vs_card         | nan                | nan                | PASS    
+  card_secs_since_last_txn   | 0.0000             | 0.0000             | PASS    
+  card_txn_count_1h          | 0                  | 0                  | PASS    
+  card_txn_count_24h         | 0                  | 0                  | PASS    
+  card_txn_count_7d          | 0                  | 0                  | PASS    
+
+[TransactionID: 1004 | DT: 395199 | Amt: 60.0]
+  Column                     | Stream Output      | Batch Oracle       | Match?  
+  ----------------------------------------------------------------------------
+  card_prior_txn_count       | 3                  | 3                  | PASS    
+  card_first_seen_flag       | 0                  | 0                  | PASS    
+  card_prior_amt_sum         | 225.0000           | 225.0000           | PASS    
+  card_prior_amt_mean        | 75.0000            | 75.0000            | PASS    
+  card_prior_amt_std         | 25.0000            | 25.0000            | PASS    
+  card_prior_amt_max         | 100.0000           | 100.0000           | PASS    
+  amt_zscore_vs_card         | -0.6000            | -0.6000            | PASS    
+  card_secs_since_last_txn   | 295199.0000        | 295199.0000        | PASS    
+  card_txn_count_1h          | 0                  | 0                  | PASS    
+  card_txn_count_24h         | 0                  | 0                  | PASS    
+  card_txn_count_7d          | 3                  | 3                  | PASS    
+
+[TransactionID: 1005 | DT: 395200 | Amt: 70.0]
+  Column                     | Stream Output      | Batch Oracle       | Match?  
+  ----------------------------------------------------------------------------
+  card_prior_txn_count       | 4                  | 4                  | PASS    
+  card_first_seen_flag       | 0                  | 0                  | PASS    
+  card_prior_amt_sum         | 285.0000           | 285.0000           | PASS    
+  card_prior_amt_mean        | 71.2500            | 71.2500            | PASS    
+  card_prior_amt_std         | 21.7466            | 21.7466            | PASS    
+  card_prior_amt_max         | 100.0000           | 100.0000           | PASS    
+  amt_zscore_vs_card         | -0.0575            | -0.0575            | PASS    
+  card_secs_since_last_txn   | 1.0000             | 1.0000             | PASS    
+  card_txn_count_1h          | 1                  | 1                  | PASS    
+  card_txn_count_24h         | 1                  | 1                  | PASS    
+  card_txn_count_7d          | 4                  | 4                  | PASS    
+
+[TransactionID: 1006 | DT: 913599 | Amt: 80.0]
+  Column                     | Stream Output      | Batch Oracle       | Match?  
+  ----------------------------------------------------------------------------
+  card_prior_txn_count       | 5                  | 5                  | PASS    
+  card_first_seen_flag       | 0                  | 0                  | PASS    
+  card_prior_amt_sum         | 355.0000           | 355.0000           | PASS    
+  card_prior_amt_mean        | 71.0000            | 71.0000            | PASS    
+  card_prior_amt_std         | 18.8414            | 18.8414            | PASS    
+  card_prior_amt_max         | 100.0000           | 100.0000           | PASS    
+  amt_zscore_vs_card         | 0.4777             | 0.4777             | PASS    
+  card_secs_since_last_txn   | 518399.0000        | 518399.0000        | PASS    
+  card_txn_count_1h          | 0                  | 0                  | PASS    
+  card_txn_count_24h         | 0                  | 0                  | PASS    
+  card_txn_count_7d          | 2                  | 2                  | PASS    
+
+[TransactionID: 1007 | DT: 913600 | Amt: 90.0]
+  Column                     | Stream Output      | Batch Oracle       | Match?  
+  ----------------------------------------------------------------------------
+  card_prior_txn_count       | 6                  | 6                  | PASS    
+  card_first_seen_flag       | 0                  | 0                  | PASS    
+  card_prior_amt_sum         | 435.0000           | 435.0000           | PASS    
+  card_prior_amt_mean        | 72.5000            | 72.5000            | PASS    
+  card_prior_amt_std         | 17.2482            | 17.2482            | PASS    
+  card_prior_amt_max         | 100.0000           | 100.0000           | PASS    
+  amt_zscore_vs_card         | 1.0146             | 1.0146             | PASS    
+  card_secs_since_last_txn   | 1.0000             | 1.0000             | PASS    
+  card_txn_count_1h          | 1                  | 1                  | PASS    
+  card_txn_count_24h         | 1                  | 1                  | PASS    
+  card_txn_count_7d          | 3                  | 3                  | PASS    
+
+[TransactionID: 1008 | DT: 996399 | Amt: 110.0]
+  Column                     | Stream Output      | Batch Oracle       | Match?  
+  ----------------------------------------------------------------------------
+  card_prior_txn_count       | 7                  | 7                  | PASS    
+  card_first_seen_flag       | 0                  | 0                  | PASS    
+  card_prior_amt_sum         | 525.0000           | 525.0000           | PASS    
+  card_prior_amt_mean        | 75.0000            | 75.0000            | PASS    
+  card_prior_amt_std         | 17.0783            | 17.0783            | PASS    
+  card_prior_amt_max         | 100.0000           | 100.0000           | PASS    
+  amt_zscore_vs_card         | 2.0494             | 2.0494             | PASS    
+  card_secs_since_last_txn   | 82799.0000         | 82799.0000         | PASS    
+  card_txn_count_1h          | 0                  | 0                  | PASS    
+  card_txn_count_24h         | 2                  | 2                  | PASS    
+  card_txn_count_7d          | 4                  | 4                  | PASS    
+
+[TransactionID: 1009 | DT: 996400 | Amt: 120.0]
+  Column                     | Stream Output      | Batch Oracle       | Match?  
+  ----------------------------------------------------------------------------
+  card_prior_txn_count       | 8                  | 8                  | PASS    
+  card_first_seen_flag       | 0                  | 0                  | PASS    
+  card_prior_amt_sum         | 635.0000           | 635.0000           | PASS    
+  card_prior_amt_mean        | 79.3750            | 79.3750            | PASS    
+  card_prior_amt_std         | 20.0780            | 20.0780            | PASS    
+  card_prior_amt_max         | 110.0000           | 110.0000           | PASS    
+  amt_zscore_vs_card         | 2.0234             | 2.0234             | PASS    
+  card_secs_since_last_txn   | 1.0000             | 1.0000             | PASS    
+  card_txn_count_1h          | 1                  | 1                  | PASS    
+  card_txn_count_24h         | 3                  | 3                  | PASS    
+  card_txn_count_7d          | 5                  | 5                  | PASS    
+
+[TransactionID: 1010 | DT: 999999 | Amt: 130.0]
+  Column                     | Stream Output      | Batch Oracle       | Match?  
+  ----------------------------------------------------------------------------
+  card_prior_txn_count       | 9                  | 9                  | PASS    
+  card_first_seen_flag       | 0                  | 0                  | PASS    
+  card_prior_amt_sum         | 755.0000           | 755.0000           | PASS    
+  card_prior_amt_mean        | 83.8889            | 83.8889            | PASS    
+  card_prior_amt_std         | 23.1541            | 23.1541            | PASS    
+  card_prior_amt_max         | 120.0000           | 120.0000           | PASS    
+  amt_zscore_vs_card         | 1.9915             | 1.9915             | PASS    
+  card_secs_since_last_txn   | 3599.0000          | 3599.0000          | PASS    
+  card_txn_count_1h          | 2                  | 2                  | PASS    
+  card_txn_count_24h         | 4                  | 4                  | PASS    
+  card_txn_count_7d          | 6                  | 6                  | PASS    
+
+[TransactionID: 1011 | DT: 1000000 | Amt: 150.0]
+  Column                     | Stream Output      | Batch Oracle       | Match?  
+  ----------------------------------------------------------------------------
+  card_prior_txn_count       | 10                 | 10                 | PASS    
+  card_first_seen_flag       | 0                  | 0                  | PASS    
+  card_prior_amt_sum         | 885.0000           | 885.0000           | PASS    
+  card_prior_amt_mean        | 88.5000            | 88.5000            | PASS    
+  card_prior_amt_std         | 26.2520            | 26.2520            | PASS    
+  card_prior_amt_max         | 130.0000           | 130.0000           | PASS    
+  amt_zscore_vs_card         | 2.3427             | 2.3427             | PASS    
+  card_secs_since_last_txn   | 1.0000             | 1.0000             | PASS    
+  card_txn_count_1h          | 2                  | 2                  | PASS    
+  card_txn_count_24h         | 4                  | 4                  | PASS    
+  card_txn_count_7d          | 6                  | 6                  | PASS    
+
+================================================================================
+TOTAL MISMATCHES ACROSS ALL 11 COLUMNS ON ALL 11 ROWS: 0
+Gate 1.2 PASSED: 100% strict parity with Member 2 batch oracle on ties & window boundaries!
+================================================================================
+26/10/16 17:51:18 ERROR ShutdownHookManager: Exception while deleting Spark temp dir: C:\Users\akshi\AppData\Local\Temp\spark-b9183d67-b1d5-4ae8-958e-78cdb43302b3\userFiles-c5121201-859f-4c47-bd09-c38f76bb0994
+java.io.IOException: Failed to delete: C:\Users\akshi\AppData\Local\Temp\spark-b9183d67-b1d5-4ae8-958e-78cdb43302b3\userFiles-c5121201-859f-4c47-bd09-c38f76bb0994\org.xerial.snappy_snappy-java-1.1.10.8.jar
+	at org.apache.spark.network.util.JavaUtils.deleteRecursivelyUsingJavaIO(JavaUtils.java:308)
+	at org.apache.spark.network.util.JavaUtils.deleteRecursively(JavaUtils.java:277)
+	at org.apache.spark.network.util.JavaUtils.deleteRecursivelyUsingJavaIO(JavaUtils.java:291)
+	at org.apache.spark.network.util.JavaUtils.deleteRecursively(JavaUtils.java:277)
+	at org.apache.spark.network.util.JavaUtils.deleteRecursively(JavaUtils.java:248)
+	at org.apache.spark.util.SparkFileUtils.deleteRecursively(SparkFileUtils.scala:158)
+	at org.apache.spark.util.SparkFileUtils.deleteRecursively$(SparkFileUtils.scala:157)
+	at org.apache.spark.util.Utils$.deleteRecursively(Utils.scala:1062)
+	at org.apache.spark.util.ShutdownHookManager$.$anonfun$new$4(ShutdownHookManager.scala:70)
+	at org.apache.spark.util.ShutdownHookManager$.$anonfun$new$4$adapted(ShutdownHookManager.scala:67)
+	at scala.collection.ArrayOps$.foreach$extension(ArrayOps.scala:1324)
+	at org.apache.spark.util.ShutdownHookManager$.$anonfun$new$2(ShutdownHookManager.scala:67)
+	at org.apache.spark.util.SparkShutdownHook.run(ShutdownHookManager.scala:231)
+	at org.apache.spark.util.SparkShutdownHookManager.$anonfun$runAll$2(ShutdownHookManager.scala:205)
+	at scala.runtime.java8.JFunction0$mcV$sp.apply(JFunction0$mcV$sp.scala:18)
+	at org.apache.spark.util.Utils$.logUncaughtExceptions(Utils.scala:1941)
+	at org.apache.spark.util.SparkShutdownHookManager.$anonfun$runAll$1(ShutdownHookManager.scala:205)
+	at scala.runtime.java8.JFunction0$mcV$sp.apply(JFunction0$mcV$sp.scala:18)
+	at scala.util.Try$.apply(Try.scala:217)
+	at org.apache.spark.util.SparkShutdownHookManager.runAll(ShutdownHookManager.scala:205)
+	at org.apache.spark.util.SparkShutdownHookManager$$anon$2.run(ShutdownHookManager.scala:184)
+	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:539)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:264)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+	at java.base/java.lang.Thread.run(Thread.java:840)
+26/10/16 17:51:18 ERROR ShutdownHookManager: Exception while deleting Spark temp dir: C:\Users\akshi\AppData\Local\Temp\spark-b9183d67-b1d5-4ae8-958e-78cdb43302b3
+java.io.IOException: Failed to delete: C:\Users\akshi\AppData\Local\Temp\spark-b9183d67-b1d5-4ae8-958e-78cdb43302b3\userFiles-c5121201-859f-4c47-bd09-c38f76bb0994\org.xerial.snappy_snappy-java-1.1.10.8.jar
+	at org.apache.spark.network.util.JavaUtils.deleteRecursivelyUsingJavaIO(JavaUtils.java:308)
+	at org.apache.spark.network.util.JavaUtils.deleteRecursively(JavaUtils.java:277)
+	at org.apache.spark.network.util.JavaUtils.deleteRecursivelyUsingJavaIO(JavaUtils.java:291)
+	at org.apache.spark.network.util.JavaUtils.deleteRecursively(JavaUtils.java:277)
+	at org.apache.spark.network.util.JavaUtils.deleteRecursivelyUsingJavaIO(JavaUtils.java:291)
+	at org.apache.spark.network.util.JavaUtils.deleteRecursively(JavaUtils.java:277)
+	at org.apache.spark.network.util.JavaUtils.deleteRecursively(JavaUtils.java:248)
+	at org.apache.spark.util.SparkFileUtils.deleteRecursively(SparkFileUtils.scala:158)
+	at org.apache.spark.util.SparkFileUtils.deleteRecursively$(SparkFileUtils.scala:157)
+	at org.apache.spark.util.Utils$.deleteRecursively(Utils.scala:1062)
+	at org.apache.spark.util.ShutdownHookManager$.$anonfun$new$4(ShutdownHookManager.scala:70)
+	at org.apache.spark.util.ShutdownHookManager$.$anonfun$new$4$adapted(ShutdownHookManager.scala:67)
+	at scala.collection.ArrayOps$.foreach$extension(ArrayOps.scala:1324)
+	at org.apache.spark.util.ShutdownHookManager$.$anonfun$new$2(ShutdownHookManager.scala:67)
+	at org.apache.spark.util.SparkShutdownHook.run(ShutdownHookManager.scala:231)
+	at org.apache.spark.util.SparkShutdownHookManager.$anonfun$runAll$2(ShutdownHookManager.scala:205)
+	at scala.runtime.java8.JFunction0$mcV$sp.apply(JFunction0$mcV$sp.scala:18)
+	at org.apache.spark.util.Utils$.logUncaughtExceptions(Utils.scala:1941)
+	at org.apache.spark.util.SparkShutdownHookManager.$anonfun$runAll$1(ShutdownHookManager.scala:205)
+	at scala.runtime.java8.JFunction0$mcV$sp.apply(JFunction0$mcV$sp.scala:18)
+	at scala.util.Try$.apply(Try.scala:217)
+	at org.apache.spark.util.SparkShutdownHookManager.runAll(ShutdownHookManager.scala:205)
+	at org.apache.spark.util.SparkShutdownHookManager$$anon$2.run(ShutdownHookManager.scala:184)
+	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:539)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:264)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+	at java.base/java.lang.Thread.run(Thread.java:840)

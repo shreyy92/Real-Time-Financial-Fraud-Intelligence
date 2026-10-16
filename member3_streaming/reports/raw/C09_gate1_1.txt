@@ -1,0 +1,701 @@
+Step 1: Resetting Kafka topics and checkpoint directory...
+Step 2: Producing 20000 valid rows to financial_transactions_ieee using producer_ieee.py...
+Producer finished successfully.
+Step 3: Injecting 6 bad messages to test every DLQ reason code...
+Injected 6 bad messages.
+Step 4: Launching real Spark Structured Streaming consumer (consumer_ieee.py)...
+Consumer process started with PID 23632. Polling financial_features_ieee and financial_transactions_ieee_dlq...
+Consumed 0 / 20000 output records (1.0s elapsed)...
+Consumed 0 / 20000 output records (3.0s elapsed)...
+Consumed 0 / 20000 output records (5.0s elapsed)...
+Consumed 0 / 20000 output records (7.0s elapsed)...
+Consumed 0 / 20000 output records (9.0s elapsed)...
+Consumed 0 / 20000 output records (11.1s elapsed)...
+Consumed 0 / 20000 output records (13.1s elapsed)...
+Consumed 0 / 20000 output records (15.1s elapsed)...
+Consumed 0 / 20000 output records (17.1s elapsed)...
+Consumed 0 / 20000 output records (19.1s elapsed)...
+Consumed 0 / 20000 output records (21.1s elapsed)...
+Consumed 0 / 20000 output records (23.1s elapsed)...
+Consumed 0 / 20000 output records (25.1s elapsed)...
+Consumed 0 / 20000 output records (27.1s elapsed)...
+Consumed 0 / 20000 output records (29.1s elapsed)...
+Consumed 0 / 20000 output records (31.1s elapsed)...
+Consumed 0 / 20000 output records (33.1s elapsed)...
+Consumed 0 / 20000 output records (35.1s elapsed)...
+Consumed 176 / 20000 output records (36.5s elapsed)...
+Consumed 352 / 20000 output records (37.9s elapsed)...
+Consumed 527 / 20000 output records (39.3s elapsed)...
+Consumed 702 / 20000 output records (40.6s elapsed)...
+Consumed 877 / 20000 output records (42.0s elapsed)...
+Consumed 1052 / 20000 output records (43.3s elapsed)...
+Consumed 1227 / 20000 output records (44.6s elapsed)...
+Consumed 1403 / 20000 output records (45.9s elapsed)...
+Consumed 1579 / 20000 output records (47.2s elapsed)...
+Consumed 1754 / 20000 output records (48.5s elapsed)...
+Consumed 1929 / 20000 output records (49.8s elapsed)...
+Consumed 2104 / 20000 output records (51.3s elapsed)...
+Consumed 2279 / 20000 output records (52.6s elapsed)...
+Consumed 2454 / 20000 output records (54.0s elapsed)...
+Consumed 2629 / 20000 output records (55.4s elapsed)...
+Consumed 2804 / 20000 output records (56.9s elapsed)...
+Consumed 2979 / 20000 output records (58.3s elapsed)...
+Consumed 3154 / 20000 output records (59.7s elapsed)...
+Consumed 3329 / 20000 output records (61.1s elapsed)...
+Consumed 3504 / 20000 output records (62.5s elapsed)...
+Consumed 3679 / 20000 output records (63.8s elapsed)...
+Consumed 3854 / 20000 output records (65.2s elapsed)...
+Consumed 4029 / 20000 output records (66.7s elapsed)...
+Consumed 4204 / 20000 output records (67.9s elapsed)...
+Consumed 4379 / 20000 output records (69.2s elapsed)...
+Consumed 4554 / 20000 output records (70.5s elapsed)...
+Consumed 4729 / 20000 output records (71.8s elapsed)...
+Consumed 4904 / 20000 output records (73.1s elapsed)...
+Consumed 5079 / 20000 output records (74.5s elapsed)...
+Consumed 5254 / 20000 output records (75.8s elapsed)...
+Consumed 5430 / 20000 output records (77.1s elapsed)...
+Consumed 5605 / 20000 output records (78.4s elapsed)...
+Consumed 5779 / 20000 output records (79.7s elapsed)...
+Consumed 5954 / 20000 output records (81.0s elapsed)...
+Consumed 6129 / 20000 output records (82.3s elapsed)...
+Consumed 6304 / 20000 output records (83.6s elapsed)...
+Consumed 6479 / 20000 output records (84.9s elapsed)...
+Consumed 6654 / 20000 output records (86.3s elapsed)...
+Consumed 6829 / 20000 output records (87.9s elapsed)...
+Consumed 7004 / 20000 output records (89.1s elapsed)...
+Consumed 7179 / 20000 output records (90.4s elapsed)...
+Consumed 7354 / 20000 output records (91.7s elapsed)...
+Consumed 7529 / 20000 output records (93.0s elapsed)...
+Consumed 7704 / 20000 output records (94.3s elapsed)...
+Consumed 7879 / 20000 output records (95.5s elapsed)...
+Consumed 8054 / 20000 output records (96.8s elapsed)...
+Consumed 8229 / 20000 output records (98.1s elapsed)...
+Consumed 8404 / 20000 output records (99.3s elapsed)...
+Consumed 8579 / 20000 output records (100.6s elapsed)...
+Consumed 8754 / 20000 output records (101.9s elapsed)...
+Consumed 8929 / 20000 output records (103.2s elapsed)...
+Consumed 9104 / 20000 output records (104.4s elapsed)...
+Consumed 9279 / 20000 output records (105.7s elapsed)...
+Consumed 9454 / 20000 output records (107.0s elapsed)...
+Consumed 9629 / 20000 output records (108.2s elapsed)...
+Consumed 9804 / 20000 output records (109.5s elapsed)...
+Consumed 9979 / 20000 output records (110.8s elapsed)...
+Consumed 10154 / 20000 output records (112.1s elapsed)...
+Consumed 10329 / 20000 output records (113.4s elapsed)...
+Consumed 10504 / 20000 output records (114.6s elapsed)...
+Consumed 10679 / 20000 output records (116.0s elapsed)...
+Consumed 10854 / 20000 output records (117.3s elapsed)...
+Consumed 11029 / 20000 output records (118.5s elapsed)...
+Consumed 11204 / 20000 output records (119.8s elapsed)...
+Consumed 11379 / 20000 output records (121.1s elapsed)...
+Consumed 11554 / 20000 output records (122.4s elapsed)...
+Consumed 11729 / 20000 output records (123.8s elapsed)...
+Consumed 11904 / 20000 output records (125.1s elapsed)...
+Consumed 12079 / 20000 output records (126.5s elapsed)...
+Consumed 12255 / 20000 output records (127.7s elapsed)...
+Consumed 12430 / 20000 output records (129.0s elapsed)...
+Consumed 12605 / 20000 output records (130.3s elapsed)...
+Consumed 12780 / 20000 output records (131.6s elapsed)...
+Consumed 12955 / 20000 output records (132.9s elapsed)...
+Consumed 13130 / 20000 output records (134.2s elapsed)...
+Consumed 13305 / 20000 output records (135.4s elapsed)...
+Consumed 13480 / 20000 output records (136.6s elapsed)...
+Consumed 13655 / 20000 output records (139.2s elapsed)...
+Consumed 13830 / 20000 output records (140.6s elapsed)...
+Consumed 14005 / 20000 output records (141.9s elapsed)...
+Consumed 14180 / 20000 output records (143.4s elapsed)...
+Consumed 14355 / 20000 output records (144.7s elapsed)...
+Consumed 14530 / 20000 output records (146.0s elapsed)...
+Consumed 14706 / 20000 output records (147.3s elapsed)...
+Consumed 14881 / 20000 output records (148.6s elapsed)...
+Consumed 15056 / 20000 output records (149.9s elapsed)...
+Consumed 15231 / 20000 output records (151.2s elapsed)...
+Consumed 15407 / 20000 output records (153.0s elapsed)...
+Consumed 15583 / 20000 output records (154.3s elapsed)...
+Consumed 15758 / 20000 output records (155.5s elapsed)...
+Consumed 15934 / 20000 output records (156.8s elapsed)...
+Consumed 16109 / 20000 output records (158.1s elapsed)...
+Consumed 16285 / 20000 output records (159.4s elapsed)...
+Consumed 16461 / 20000 output records (160.7s elapsed)...
+Consumed 16636 / 20000 output records (161.9s elapsed)...
+Consumed 16811 / 20000 output records (163.2s elapsed)...
+Consumed 16986 / 20000 output records (164.5s elapsed)...
+Consumed 17160 / 20000 output records (165.8s elapsed)...
+Consumed 17335 / 20000 output records (167.1s elapsed)...
+Consumed 17510 / 20000 output records (168.3s elapsed)...
+Consumed 17684 / 20000 output records (169.6s elapsed)...
+Consumed 17859 / 20000 output records (170.9s elapsed)...
+Consumed 18034 / 20000 output records (172.2s elapsed)...
+Consumed 18209 / 20000 output records (173.4s elapsed)...
+Consumed 18384 / 20000 output records (174.7s elapsed)...
+Consumed 18559 / 20000 output records (176.0s elapsed)...
+Consumed 18735 / 20000 output records (177.2s elapsed)...
+Consumed 18910 / 20000 output records (178.5s elapsed)...
+Consumed 19085 / 20000 output records (179.8s elapsed)...
+Consumed 19260 / 20000 output records (181.1s elapsed)...
+Consumed 19435 / 20000 output records (182.6s elapsed)...
+Consumed 19610 / 20000 output records (183.9s elapsed)...
+Consumed 19785 / 20000 output records (185.2s elapsed)...
+Consumed 19960 / 20000 output records (186.5s elapsed)...
+Terminating consumer process...
+
+================================================================================
+GATE 8 VERIFICATION AUDIT
+================================================================================
+Gate 8.1: Real streaming query: YES (Executed readStream.format('kafka') on PID 23632)
+Real Kafka: YES (Broker: 127.0.0.1:9092)
+
+Gate 8.5: DLQ Record Audit (Total received: 6 / 6):
+  DLQ Code 'MALFORMED_JSON': PASSED
+  DLQ Code 'MISSING_FIELD': PASSED
+  DLQ Code 'BAD_FIELD_TYPE': PASSED
+  DLQ Code 'NEGATIVE_AMOUNT': PASSED
+  DLQ Code 'INVALID_LABEL': PASSED
+  DLQ Code 'INVALID_TRANSACTIONDT': PASSED
+
+--- RAW DLQ RECORDS FOR EACH REASON CODE ---
+
+[DLQ RECORD: MALFORMED_JSON]
+{
+  "raw_value": "{malformed_json_unclosed",
+  "reason_code": "MALFORMED_JSON",
+  "ingested_at": "2026-10-16T12:14:11.375881+00:00"
+}
+
+[DLQ RECORD: MISSING_FIELD]
+{
+  "raw_value": "{\"TransactionID\": 9999001, \"TransactionDT\": 100, \"TransactionAmt\": 50.0, \"ProductCD\": \"W\"}",
+  "reason_code": "MISSING_FIELD",
+  "ingested_at": "2026-10-16T12:14:11.375881+00:00"
+}
+
+[DLQ RECORD: BAD_FIELD_TYPE]
+{
+  "raw_value": "{\"TransactionID\": 9999002, \"isFraud\": 0, \"TransactionDT\": 100, \"TransactionAmt\": \"not_a_number\", \"ProductCD\": \"W\", \"card1\": 1000}",
+  "reason_code": "BAD_FIELD_TYPE",
+  "ingested_at": "2026-10-16T12:14:11.375881+00:00"
+}
+
+[DLQ RECORD: NEGATIVE_AMOUNT]
+{
+  "raw_value": "{\"TransactionID\": 9999003, \"isFraud\": 0, \"TransactionDT\": 100, \"TransactionAmt\": -25.0, \"ProductCD\": \"W\", \"card1\": 1000}",
+  "reason_code": "NEGATIVE_AMOUNT",
+  "ingested_at": "2026-10-16T12:14:11.375881+00:00"
+}
+
+[DLQ RECORD: INVALID_LABEL]
+{
+  "raw_value": "{\"TransactionID\": 9999004, \"isFraud\": 5, \"TransactionDT\": 100, \"TransactionAmt\": 50.0, \"ProductCD\": \"W\", \"card1\": 1000}",
+  "reason_code": "INVALID_LABEL",
+  "ingested_at": "2026-10-16T12:14:11.375881+00:00"
+}
+
+[DLQ RECORD: INVALID_TRANSACTIONDT]
+{
+  "raw_value": "{\"TransactionID\": 9999005, \"isFraud\": 0, \"TransactionDT\": -100, \"TransactionAmt\": 50.0, \"ProductCD\": \"W\", \"card1\": 1000}",
+  "reason_code": "INVALID_TRANSACTIONDT",
+  "ingested_at": "2026-10-16T12:14:11.375881+00:00"
+}
+---------------------------------------------
+Gate 8.5 PASSED: Exactly 1 DLQ record per bad message, query stayed active, valid rows unaffected.
+
+Gate 8.6: Schema Column Count Check & Reconciliation:
+  Total columns in ieee_features.parquet: 483
+  Total stateful columns excluded: 11
+  Total stateless columns evaluated: 472 (472)
+  Primary join key column: TransactionID (1)
+  Total compared feature columns: 471 (471)
+  Observed stream output columns: 472 (472)
+Gate 8.6 PASSED: Output column set strictly matches Member 2's stateless set.
+
+Gate 8.2 & 8.3 & 8.4: Parity Evaluation on 20000 Transactions vs Parquet Ground Truth (Tolerance: 1e-6 abs):
+Merged row count: 20000 / 20000
+
+===============================================================================================
+column                              |  rows compared | null mismatches | val mismatches | max abs diff
+===============================================================================================
+C1                                  |          20000 |               0 |              0 |          0.0
+C10                                 |          20000 |               0 |              0 |          0.0
+C11                                 |          20000 |               0 |              0 |          0.0
+C12                                 |          20000 |               0 |              0 |          0.0
+C13                                 |          20000 |               0 |              0 |          0.0
+C14                                 |          20000 |               0 |              0 |          0.0
+C2                                  |          20000 |               0 |              0 |          0.0
+C3                                  |          20000 |               0 |              0 |          0.0
+C4                                  |          20000 |               0 |              0 |          0.0
+C5                                  |          20000 |               0 |              0 |          0.0
+C6                                  |          20000 |               0 |              0 |          0.0
+C7                                  |          20000 |               0 |              0 |          0.0
+C8                                  |          20000 |               0 |              0 |          0.0
+C9                                  |          20000 |               0 |              0 |          0.0
+D1                                  |          20000 |               0 |              0 |          0.0
+D10                                 |          20000 |               0 |              0 |          0.0
+D11                                 |          20000 |               0 |              0 |          0.0
+D12                                 |          20000 |               0 |              0 |          0.0
+D13                                 |          20000 |               0 |              0 |          0.0
+D14                                 |          20000 |               0 |              0 |          0.0
+D15                                 |          20000 |               0 |              0 |          0.0
+D2                                  |          20000 |               0 |              0 |          0.0
+D3                                  |          20000 |               0 |              0 |          0.0
+D4                                  |          20000 |               0 |              0 |          0.0
+D5                                  |          20000 |               0 |              0 |          0.0
+D6                                  |          20000 |               0 |              0 |          0.0
+D7                                  |          20000 |               0 |              0 |          0.0
+D8                                  |          20000 |               0 |              0 |          0.0
+D9                                  |          20000 |               0 |              0 |          0.0
+DeviceInfo                          |          20000 |               0 |              0 |          0.0
+DeviceType                          |          20000 |               0 |              0 |          0.0
+M1                                  |          20000 |               0 |              0 |          0.0
+M2                                  |          20000 |               0 |              0 |          0.0
+M3                                  |          20000 |               0 |              0 |          0.0
+M4                                  |          20000 |               0 |              0 |          0.0
+M5                                  |          20000 |               0 |              0 |          0.0
+M6                                  |          20000 |               0 |              0 |          0.0
+M7                                  |          20000 |               0 |              0 |          0.0
+M8                                  |          20000 |               0 |              0 |          0.0
+M9                                  |          20000 |               0 |              0 |          0.0
+P_emaildomain                       |          20000 |               0 |              0 |          0.0
+ProductCD                           |          20000 |               0 |              0 |          0.0
+R_emaildomain                       |          20000 |               0 |              0 |          0.0
+TransactionAmt                      |          20000 |               0 |              0 |          0.0
+TransactionDT                       |          20000 |               0 |              0 |          0.0
+V10                                 |          20000 |               0 |              0 |          0.0
+V100                                |          20000 |               0 |              0 |          0.0
+V101                                |          20000 |               0 |              0 |          0.0
+V102                                |          20000 |               0 |              0 |          0.0
+V103                                |          20000 |               0 |              0 |          0.0
+V104                                |          20000 |               0 |              0 |          0.0
+V105                                |          20000 |               0 |              0 |          0.0
+V106                                |          20000 |               0 |              0 |          0.0
+V108                                |          20000 |               0 |              0 |          0.0
+V109                                |          20000 |               0 |              0 |          0.0
+V11                                 |          20000 |               0 |              0 |          0.0
+V110                                |          20000 |               0 |              0 |          0.0
+V111                                |          20000 |               0 |              0 |          0.0
+V112                                |          20000 |               0 |              0 |          0.0
+V113                                |          20000 |               0 |              0 |          0.0
+V114                                |          20000 |               0 |              0 |          0.0
+V115                                |          20000 |               0 |              0 |          0.0
+V116                                |          20000 |               0 |              0 |          0.0
+V117                                |          20000 |               0 |              0 |          0.0
+V118                                |          20000 |               0 |              0 |          0.0
+V119                                |          20000 |               0 |              0 |          0.0
+V12                                 |          20000 |               0 |              0 |          0.0
+V120                                |          20000 |               0 |              0 |          0.0
+V121                                |          20000 |               0 |              0 |          0.0
+V122                                |          20000 |               0 |              0 |          0.0
+V123                                |          20000 |               0 |              0 |          0.0
+V124                                |          20000 |               0 |              0 |          0.0
+V125                                |          20000 |               0 |              0 |          0.0
+V126                                |          20000 |               0 |              0 |          0.0
+V127                                |          20000 |               0 |              0 |          0.0
+V128                                |          20000 |               0 |              0 |          0.0
+V129                                |          20000 |               0 |              0 |          0.0
+V13                                 |          20000 |               0 |              0 |          0.0
+V130                                |          20000 |               0 |              0 |          0.0
+V131                                |          20000 |               0 |              0 |          0.0
+V132                                |          20000 |               0 |              0 |          0.0
+V133                                |          20000 |               0 |              0 |          0.0
+V134                                |          20000 |               0 |              0 |          0.0
+V135                                |          20000 |               0 |              0 |          0.0
+V136                                |          20000 |               0 |              0 |          0.0
+V137                                |          20000 |               0 |              0 |          0.0
+V138                                |          20000 |               0 |              0 |          0.0
+V139                                |          20000 |               0 |              0 |          0.0
+V140                                |          20000 |               0 |              0 |          0.0
+V141                                |          20000 |               0 |              0 |          0.0
+V142                                |          20000 |               0 |              0 |          0.0
+V143                                |          20000 |               0 |              0 |          0.0
+V144                                |          20000 |               0 |              0 |          0.0
+V145                                |          20000 |               0 |              0 |          0.0
+V146                                |          20000 |               0 |              0 |          0.0
+V147                                |          20000 |               0 |              0 |          0.0
+V148                                |          20000 |               0 |              0 |          0.0
+V149                                |          20000 |               0 |              0 |          0.0
+V15                                 |          20000 |               0 |              0 |          0.0
+V150                                |          20000 |               0 |              0 |          0.0
+V151                                |          20000 |               0 |              0 |          0.0
+V152                                |          20000 |               0 |              0 |          0.0
+V153                                |          20000 |               0 |              0 |          0.0
+V154                                |          20000 |               0 |              0 |          0.0
+V155                                |          20000 |               0 |              0 |          0.0
+V156                                |          20000 |               0 |              0 |          0.0
+V157                                |          20000 |               0 |              0 |          0.0
+V158                                |          20000 |               0 |              0 |          0.0
+V159                                |          20000 |               0 |              0 |          0.0
+V16                                 |          20000 |               0 |              0 |          0.0
+V160                                |          20000 |               0 |              0 |          0.0
+V161                                |          20000 |               0 |              0 |          0.0
+V162                                |          20000 |               0 |              0 |          0.0
+V163                                |          20000 |               0 |              0 |          0.0
+V164                                |          20000 |               0 |              0 |          0.0
+V165                                |          20000 |               0 |              0 |          0.0
+V166                                |          20000 |               0 |              0 |          0.0
+V167                                |          20000 |               0 |              0 |          0.0
+V168                                |          20000 |               0 |              0 |          0.0
+V169                                |          20000 |               0 |              0 |          0.0
+V17                                 |          20000 |               0 |              0 |          0.0
+V170                                |          20000 |               0 |              0 |          0.0
+V171                                |          20000 |               0 |              0 |          0.0
+V172                                |          20000 |               0 |              0 |          0.0
+V173                                |          20000 |               0 |              0 |          0.0
+V174                                |          20000 |               0 |              0 |          0.0
+V175                                |          20000 |               0 |              0 |          0.0
+V176                                |          20000 |               0 |              0 |          0.0
+V177                                |          20000 |               0 |              0 |          0.0
+V178                                |          20000 |               0 |              0 |          0.0
+V179                                |          20000 |               0 |              0 |          0.0
+V18                                 |          20000 |               0 |              0 |          0.0
+V180                                |          20000 |               0 |              0 |          0.0
+V181                                |          20000 |               0 |              0 |          0.0
+V182                                |          20000 |               0 |              0 |          0.0
+V183                                |          20000 |               0 |              0 |          0.0
+V184                                |          20000 |               0 |              0 |          0.0
+V185                                |          20000 |               0 |              0 |          0.0
+V186                                |          20000 |               0 |              0 |          0.0
+V187                                |          20000 |               0 |              0 |          0.0
+V188                                |          20000 |               0 |              0 |          0.0
+V189                                |          20000 |               0 |              0 |          0.0
+V19                                 |          20000 |               0 |              0 |          0.0
+V190                                |          20000 |               0 |              0 |          0.0
+V191                                |          20000 |               0 |              0 |          0.0
+V192                                |          20000 |               0 |              0 |          0.0
+V193                                |          20000 |               0 |              0 |          0.0
+V194                                |          20000 |               0 |              0 |          0.0
+V195                                |          20000 |               0 |              0 |          0.0
+V196                                |          20000 |               0 |              0 |          0.0
+V197                                |          20000 |               0 |              0 |          0.0
+V198                                |          20000 |               0 |              0 |          0.0
+V199                                |          20000 |               0 |              0 |          0.0
+V2                                  |          20000 |               0 |              0 |          0.0
+V20                                 |          20000 |               0 |              0 |          0.0
+V200                                |          20000 |               0 |              0 |          0.0
+V201                                |          20000 |               0 |              0 |          0.0
+V202                                |          20000 |               0 |              0 |          0.0
+V203                                |          20000 |               0 |              0 |          0.0
+V204                                |          20000 |               0 |              0 |          0.0
+V205                                |          20000 |               0 |              0 |          0.0
+V206                                |          20000 |               0 |              0 |          0.0
+V207                                |          20000 |               0 |              0 |          0.0
+V208                                |          20000 |               0 |              0 |          0.0
+V209                                |          20000 |               0 |              0 |          0.0
+V21                                 |          20000 |               0 |              0 |          0.0
+V210                                |          20000 |               0 |              0 |          0.0
+V211                                |          20000 |               0 |              0 |          0.0
+V212                                |          20000 |               0 |              0 |          0.0
+V213                                |          20000 |               0 |              0 |          0.0
+V214                                |          20000 |               0 |              0 |          0.0
+V215                                |          20000 |               0 |              0 |          0.0
+V216                                |          20000 |               0 |              0 |          0.0
+V217                                |          20000 |               0 |              0 |          0.0
+V218                                |          20000 |               0 |              0 |          0.0
+V219                                |          20000 |               0 |              0 |          0.0
+V22                                 |          20000 |               0 |              0 |          0.0
+V220                                |          20000 |               0 |              0 |          0.0
+V221                                |          20000 |               0 |              0 |          0.0
+V222                                |          20000 |               0 |              0 |          0.0
+V223                                |          20000 |               0 |              0 |          0.0
+V224                                |          20000 |               0 |              0 |          0.0
+V225                                |          20000 |               0 |              0 |          0.0
+V226                                |          20000 |               0 |              0 |          0.0
+V227                                |          20000 |               0 |              0 |          0.0
+V228                                |          20000 |               0 |              0 |          0.0
+V229                                |          20000 |               0 |              0 |          0.0
+V23                                 |          20000 |               0 |              0 |          0.0
+V230                                |          20000 |               0 |              0 |          0.0
+V231                                |          20000 |               0 |              0 |          0.0
+V232                                |          20000 |               0 |              0 |          0.0
+V233                                |          20000 |               0 |              0 |          0.0
+V234                                |          20000 |               0 |              0 |          0.0
+V235                                |          20000 |               0 |              0 |          0.0
+V236                                |          20000 |               0 |              0 |          0.0
+V237                                |          20000 |               0 |              0 |          0.0
+V238                                |          20000 |               0 |              0 |          0.0
+V239                                |          20000 |               0 |              0 |          0.0
+V24                                 |          20000 |               0 |              0 |          0.0
+V242                                |          20000 |               0 |              0 |          0.0
+V243                                |          20000 |               0 |              0 |          0.0
+V244                                |          20000 |               0 |              0 |          0.0
+V245                                |          20000 |               0 |              0 |          0.0
+V246                                |          20000 |               0 |              0 |          0.0
+V247                                |          20000 |               0 |              0 |          0.0
+V248                                |          20000 |               0 |              0 |          0.0
+V249                                |          20000 |               0 |              0 |          0.0
+V25                                 |          20000 |               0 |              0 |          0.0
+V250                                |          20000 |               0 |              0 |          0.0
+V251                                |          20000 |               0 |              0 |          0.0
+V252                                |          20000 |               0 |              0 |          0.0
+V253                                |          20000 |               0 |              0 |          0.0
+V254                                |          20000 |               0 |              0 |          0.0
+V255                                |          20000 |               0 |              0 |          0.0
+V256                                |          20000 |               0 |              0 |          0.0
+V257                                |          20000 |               0 |              0 |          0.0
+V258                                |          20000 |               0 |              0 |          0.0
+V259                                |          20000 |               0 |              0 |          0.0
+V26                                 |          20000 |               0 |              0 |          0.0
+V260                                |          20000 |               0 |              0 |          0.0
+V261                                |          20000 |               0 |              0 |          0.0
+V262                                |          20000 |               0 |              0 |          0.0
+V263                                |          20000 |               0 |              0 |          0.0
+V264                                |          20000 |               0 |              0 |          0.0
+V265                                |          20000 |               0 |              0 |          0.0
+V266                                |          20000 |               0 |              0 |          0.0
+V267                                |          20000 |               0 |              0 |          0.0
+V268                                |          20000 |               0 |              0 |          0.0
+V269                                |          20000 |               0 |              0 |          0.0
+V270                                |          20000 |               0 |              0 |          0.0
+V271                                |          20000 |               0 |              0 |          0.0
+V272                                |          20000 |               0 |              0 |          0.0
+V273                                |          20000 |               0 |              0 |          0.0
+V274                                |          20000 |               0 |              0 |          0.0
+V275                                |          20000 |               0 |              0 |          0.0
+V276                                |          20000 |               0 |              0 |          0.0
+V277                                |          20000 |               0 |              0 |          0.0
+V278                                |          20000 |               0 |              0 |          0.0
+V279                                |          20000 |               0 |              0 |          0.0
+V280                                |          20000 |               0 |              0 |          0.0
+V281                                |          20000 |               0 |              0 |          0.0
+V282                                |          20000 |               0 |              0 |          0.0
+V283                                |          20000 |               0 |              0 |          0.0
+V284                                |          20000 |               0 |              0 |          0.0
+V285                                |          20000 |               0 |              0 |          0.0
+V286                                |          20000 |               0 |              0 |          0.0
+V287                                |          20000 |               0 |              0 |          0.0
+V288                                |          20000 |               0 |              0 |          0.0
+V289                                |          20000 |               0 |              0 |          0.0
+V29                                 |          20000 |               0 |              0 |          0.0
+V290                                |          20000 |               0 |              0 |          0.0
+V291                                |          20000 |               0 |              0 |          0.0
+V292                                |          20000 |               0 |              0 |          0.0
+V293                                |          20000 |               0 |              0 |          0.0
+V294                                |          20000 |               0 |              0 |          0.0
+V295                                |          20000 |               0 |              0 |          0.0
+V296                                |          20000 |               0 |              0 |          0.0
+V297                                |          20000 |               0 |              0 |          0.0
+V298                                |          20000 |               0 |              0 |          0.0
+V299                                |          20000 |               0 |              0 |          0.0
+V3                                  |          20000 |               0 |              0 |          0.0
+V30                                 |          20000 |               0 |              0 |          0.0
+V300                                |          20000 |               0 |              0 |          0.0
+V301                                |          20000 |               0 |              0 |          0.0
+V302                                |          20000 |               0 |              0 |          0.0
+V303                                |          20000 |               0 |              0 |          0.0
+V304                                |          20000 |               0 |              0 |          0.0
+V306                                |          20000 |               0 |              0 |          0.0
+V307                                |          20000 |               0 |              0 |          0.0
+V308                                |          20000 |               0 |              0 |          0.0
+V309                                |          20000 |               0 |              0 |          0.0
+V31                                 |          20000 |               0 |              0 |          0.0
+V310                                |          20000 |               0 |              0 |          0.0
+V311                                |          20000 |               0 |              0 |          0.0
+V312                                |          20000 |               0 |              0 |          0.0
+V313                                |          20000 |               0 |              0 |          0.0
+V314                                |          20000 |               0 |              0 |          0.0
+V315                                |          20000 |               0 |              0 |          0.0
+V316                                |          20000 |               0 |              0 |          0.0
+V317                                |          20000 |               0 |              0 |          0.0
+V318                                |          20000 |               0 |              0 |          0.0
+V319                                |          20000 |               0 |              0 |          0.0
+V32                                 |          20000 |               0 |              0 |          0.0
+V320                                |          20000 |               0 |              0 |          0.0
+V321                                |          20000 |               0 |              0 |          0.0
+V322                                |          20000 |               0 |              0 |          0.0
+V323                                |          20000 |               0 |              0 |          0.0
+V324                                |          20000 |               0 |              0 |          0.0
+V325                                |          20000 |               0 |              0 |          0.0
+V326                                |          20000 |               0 |              0 |          0.0
+V327                                |          20000 |               0 |              0 |          0.0
+V328                                |          20000 |               0 |              0 |          0.0
+V329                                |          20000 |               0 |              0 |          0.0
+V33                                 |          20000 |               0 |              0 |          0.0
+V330                                |          20000 |               0 |              0 |          0.0
+V331                                |          20000 |               0 |              0 |          0.0
+V332                                |          20000 |               0 |              0 |          0.0
+V333                                |          20000 |               0 |              0 |          0.0
+V334                                |          20000 |               0 |              0 |          0.0
+V335                                |          20000 |               0 |              0 |          0.0
+V336                                |          20000 |               0 |              0 |          0.0
+V337                                |          20000 |               0 |              0 |          0.0
+V338                                |          20000 |               0 |              0 |          0.0
+V339                                |          20000 |               0 |              0 |          0.0
+V34                                 |          20000 |               0 |              0 |          0.0
+V35                                 |          20000 |               0 |              0 |          0.0
+V36                                 |          20000 |               0 |              0 |          0.0
+V37                                 |          20000 |               0 |              0 |          0.0
+V38                                 |          20000 |               0 |              0 |          0.0
+V39                                 |          20000 |               0 |              0 |          0.0
+V4                                  |          20000 |               0 |              0 |          0.0
+V40                                 |          20000 |               0 |              0 |          0.0
+V42                                 |          20000 |               0 |              0 |          0.0
+V43                                 |          20000 |               0 |              0 |          0.0
+V44                                 |          20000 |               0 |              0 |          0.0
+V45                                 |          20000 |               0 |              0 |          0.0
+V46                                 |          20000 |               0 |              0 |          0.0
+V47                                 |          20000 |               0 |              0 |          0.0
+V48                                 |          20000 |               0 |              0 |          0.0
+V49                                 |          20000 |               0 |              0 |          0.0
+V5                                  |          20000 |               0 |              0 |          0.0
+V50                                 |          20000 |               0 |              0 |          0.0
+V51                                 |          20000 |               0 |              0 |          0.0
+V52                                 |          20000 |               0 |              0 |          0.0
+V53                                 |          20000 |               0 |              0 |          0.0
+V54                                 |          20000 |               0 |              0 |          0.0
+V55                                 |          20000 |               0 |              0 |          0.0
+V56                                 |          20000 |               0 |              0 |          0.0
+V57                                 |          20000 |               0 |              0 |          0.0
+V58                                 |          20000 |               0 |              0 |          0.0
+V59                                 |          20000 |               0 |              0 |          0.0
+V6                                  |          20000 |               0 |              0 |          0.0
+V60                                 |          20000 |               0 |              0 |          0.0
+V61                                 |          20000 |               0 |              0 |          0.0
+V62                                 |          20000 |               0 |              0 |          0.0
+V63                                 |          20000 |               0 |              0 |          0.0
+V64                                 |          20000 |               0 |              0 |          0.0
+V66                                 |          20000 |               0 |              0 |          0.0
+V67                                 |          20000 |               0 |              0 |          0.0
+V69                                 |          20000 |               0 |              0 |          0.0
+V7                                  |          20000 |               0 |              0 |          0.0
+V70                                 |          20000 |               0 |              0 |          0.0
+V71                                 |          20000 |               0 |              0 |          0.0
+V72                                 |          20000 |               0 |              0 |          0.0
+V73                                 |          20000 |               0 |              0 |          0.0
+V74                                 |          20000 |               0 |              0 |          0.0
+V75                                 |          20000 |               0 |              0 |          0.0
+V76                                 |          20000 |               0 |              0 |          0.0
+V77                                 |          20000 |               0 |              0 |          0.0
+V78                                 |          20000 |               0 |              0 |          0.0
+V79                                 |          20000 |               0 |              0 |          0.0
+V8                                  |          20000 |               0 |              0 |          0.0
+V80                                 |          20000 |               0 |              0 |          0.0
+V81                                 |          20000 |               0 |              0 |          0.0
+V82                                 |          20000 |               0 |              0 |          0.0
+V83                                 |          20000 |               0 |              0 |          0.0
+V84                                 |          20000 |               0 |              0 |          0.0
+V85                                 |          20000 |               0 |              0 |          0.0
+V86                                 |          20000 |               0 |              0 |          0.0
+V87                                 |          20000 |               0 |              0 |          0.0
+V9                                  |          20000 |               0 |              0 |          0.0
+V90                                 |          20000 |               0 |              0 |          0.0
+V91                                 |          20000 |               0 |              0 |          0.0
+V92                                 |          20000 |               0 |              0 |          0.0
+V93                                 |          20000 |               0 |              0 |          0.0
+V94                                 |          20000 |               0 |              0 |          0.0
+V95                                 |          20000 |               0 |              0 |          0.0
+V96                                 |          20000 |               0 |              0 |          0.0
+V97                                 |          20000 |               0 |              0 |          0.0
+V98                                 |          20000 |               0 |              0 |          0.0
+V99                                 |          20000 |               0 |              0 |          0.0
+addr1                               |          20000 |               0 |              0 |          0.0
+addr2                               |          20000 |               0 |              0 |          0.0
+amt_cents                           |          20000 |               0 |              0 |          0.0
+amt_decimals_gt2_flag               |          20000 |               0 |              0 |          0.0
+amt_is_whole_flag                   |          20000 |               0 |              0 |          0.0
+amt_log1p                           |          20000 |               0 |              0 |          0.0
+c_max                               |          20000 |               0 |              0 |          0.0
+c_nonzero_cnt                       |          20000 |               0 |              0 |          0.0
+c_sum_log1p                         |          20000 |               0 |              0 |          0.0
+card1                               |          20000 |               0 |              0 |          0.0
+card2                               |          20000 |               0 |              0 |          0.0
+card3                               |          20000 |               0 |              0 |          0.0
+card4                               |          20000 |               0 |              0 |          0.0
+card5                               |          20000 |               0 |              0 |          0.0
+card6                               |          20000 |               0 |              0 |          0.0
+card_addr_proxy_id                  |          20000 |               0 |              0 |          0.0
+card_proxy_id                       |          20000 |               0 |              0 |          0.0
+d_max                               |          20000 |               0 |              0 |          0.0
+d_min                               |          20000 |               0 |              0 |          0.0
+d_nonnull_cnt                       |          20000 |               0 |              0 |          0.0
+day_index                           |          20000 |               0 |              0 |          0.0
+day_of_week_rel                     |          20000 |               0 |              0 |          0.0
+dist1                               |          20000 |               0 |              0 |          0.0
+dist2                               |          20000 |               0 |              0 |          0.0
+feature_version                     |          20000 |               0 |              0 |          0.0
+has_identity_flag                   |          20000 |               0 |              0 |          0.0
+history_window_complete_flag        |          20000 |               0 |              0 |          0.0
+hour_cos                            |          20000 |               0 |              0 |          0.0
+hour_of_day                         |          20000 |               0 |              0 |          0.0
+hour_sin                            |          20000 |               0 |              0 |          0.0
+id_01                               |          20000 |               0 |              0 |          0.0
+id_02                               |          20000 |               0 |              0 |          0.0
+id_03                               |          20000 |               0 |              0 |          0.0
+id_04                               |          20000 |               0 |              0 |          0.0
+id_05                               |          20000 |               0 |              0 |          0.0
+id_06                               |          20000 |               0 |              0 |          0.0
+id_07                               |          20000 |               0 |              0 |          0.0
+id_08                               |          20000 |               0 |              0 |          0.0
+id_09                               |          20000 |               0 |              0 |          0.0
+id_10                               |          20000 |               0 |              0 |          0.0
+id_11                               |          20000 |               0 |              0 |          0.0
+id_12                               |          20000 |               0 |              0 |          0.0
+id_13                               |          20000 |               0 |              0 |          0.0
+id_14                               |          20000 |               0 |              0 |          0.0
+id_15                               |          20000 |               0 |              0 |          0.0
+id_16                               |          20000 |               0 |              0 |          0.0
+id_17                               |          20000 |               0 |              0 |          0.0
+id_18                               |          20000 |               0 |              0 |          0.0
+id_19                               |          20000 |               0 |              0 |          0.0
+id_20                               |          20000 |               0 |              0 |          0.0
+id_21                               |          20000 |               0 |              0 |          0.0
+id_22                               |          20000 |               0 |              0 |          0.0
+id_23                               |          20000 |               0 |              0 |          0.0
+id_24                               |          20000 |               0 |              0 |          0.0
+id_25                               |          20000 |               0 |              0 |          0.0
+id_26                               |          20000 |               0 |              0 |          0.0
+id_28                               |          20000 |               0 |              0 |          0.0
+id_29                               |          20000 |               0 |              0 |          0.0
+id_30                               |          20000 |               0 |              0 |          0.0
+id_31                               |          20000 |               0 |              0 |          0.0
+id_32                               |          20000 |               0 |              0 |          0.0
+id_33                               |          20000 |               0 |              0 |          0.0
+id_34                               |          20000 |               0 |              0 |          0.0
+id_35                               |          20000 |               0 |              0 |          0.0
+id_36                               |          20000 |               0 |              0 |          0.0
+id_37                               |          20000 |               0 |              0 |          0.0
+id_38                               |          20000 |               0 |              0 |          0.0
+identity_completeness               |          20000 |               0 |              0 |          0.0
+identity_nonnull_count              |          20000 |               0 |              0 |          0.0
+ind_D10                             |          20000 |               0 |              0 |          0.0
+ind_D11                             |          20000 |               0 |              0 |          0.0
+ind_D12                             |          20000 |               0 |              0 |          0.0
+ind_D13                             |          20000 |               0 |              0 |          0.0
+ind_D14                             |          20000 |               0 |              0 |          0.0
+ind_D15                             |          20000 |               0 |              0 |          0.0
+ind_D2                              |          20000 |               0 |              0 |          0.0
+ind_D3                              |          20000 |               0 |              0 |          0.0
+ind_D4                              |          20000 |               0 |              0 |          0.0
+ind_D5                              |          20000 |               0 |              0 |          0.0
+ind_D6                              |          20000 |               0 |              0 |          0.0
+ind_D7                              |          20000 |               0 |              0 |          0.0
+ind_M1_3                            |          20000 |               0 |              0 |          0.0
+ind_Pemail                          |          20000 |               0 |              0 |          0.0
+ind_Remail                          |          20000 |               0 |              0 |          0.0
+ind_V12_34                          |          20000 |               0 |              0 |          0.0
+ind_V138_166                        |          20000 |               0 |              0 |          0.0
+ind_V167_278                        |          20000 |               0 |              0 |          0.0
+ind_V1_11                           |          20000 |               0 |              0 |          0.0
+ind_V322_339                        |          20000 |               0 |              0 |          0.0
+ind_V35_52                          |          20000 |               0 |              0 |          0.0
+ind_V53_74                          |          20000 |               0 |              0 |          0.0
+ind_V75_94                          |          20000 |               0 |              0 |          0.0
+ind_addr                            |          20000 |               0 |              0 |          0.0
+ind_dist1                           |          20000 |               0 |              0 |          0.0
+ind_dist2                           |          20000 |               0 |              0 |          0.0
+isFraud                             |          20000 |               0 |              0 |          0.0
+m_false_cnt                         |          20000 |               0 |              0 |          0.0
+m_null_cnt                          |          20000 |               0 |              0 |          0.0
+m_true_cnt                          |          20000 |               0 |              0 |          0.0
+split                               |          20000 |               0 |              0 |          0.0
+===============================================================================================
+
+Gate 8.3: Hash Columns Equality:
+  card_proxy_id mismatches: 0
+  card_addr_proxy_id mismatches: 0
+Gate 8.3 PASSED: Hash columns show strict equality (0 mismatches).
+
+Total Stateless Compared Columns: 471 (471)
+Total Column Mismatches: 0
+Gate 8.2 & 8.4 PASSED: 0 mismatches across all 471 stateless compared columns on 20,000 rows at 1e-6 tolerance!
+
+================================================================================
+ALL CHUNK 8 GATES PASSED WITH 100% SUCCESS!
+================================================================================
