@@ -12,6 +12,7 @@
 | 8 | passed | 0d22cbb | member3_streaming/reports/C08_report.md | 2026-10-13 |
 | R1-R5 | passed | 02f2438 | member3_streaming/reports/R1_R5_repair_report.md | 2026-10-16 |
 | 9 | parity passed; crash recovery requires operator rollback | 0fd7f94 | member3_streaming/reports/C09_report.md | 2026-10-16 |
+| Phase A | passed | bef0148 | member3_streaming/reports/PA_report.md | 2026-10-17 |
 | 10 | pending | - | member3_streaming/reports/C10_report.md | 2026-10-13 |
 | 11 | pending | - | member3_streaming/reports/C11_report.md | 2026-10-13 |
 | 12 | pending | - | member3_streaming/reports/C12_report.md | 2026-10-13 |
