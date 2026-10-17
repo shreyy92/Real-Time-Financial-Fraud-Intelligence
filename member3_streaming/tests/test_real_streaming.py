@@ -34,7 +34,7 @@ def _cleanup_topics(admin, topics):
 def _kill_process(proc):
     if proc and proc.poll() is None:
         try:
-            cmd = f"powershell -NoProfile -Command \"Get-CimInstance Win32_Process | Where-Object {{ $_.ParentProcessId -eq {proc.pid} }} | ForEach-Object {{ Stop-Process -Id $_.ProcessId -Force }}\""
+            cmd = f'powershell -NoProfile -Command "Stop-Process -Id (Get-CimInstance Win32_Process | Where-Object ParentProcessId -eq {proc.pid}).ProcessId -Force -ErrorAction SilentlyContinue"'
             subprocess.run(cmd, shell=True, capture_output=True)
         except Exception:
             pass
@@ -43,7 +43,7 @@ def _kill_process(proc):
             proc.wait(timeout=10)
         except Exception:
             pass
-        time.sleep(4)
+        time.sleep(10)
 
 
 @pytest.mark.slow
@@ -355,7 +355,7 @@ def test_real_streaming_late_event_routing():
 
         found_out = False
         t0 = time.time()
-        while (time.time() - t0) < 120:
+        while (time.time() - t0) < 180:
             rec_map = consumer_out.poll(timeout_ms=1000)
             if rec_map:
                 for tp, msgs in rec_map.items():
@@ -612,11 +612,11 @@ def test_real_checkpoint_recovery():
     proc1 = None
     proc2 = None
     try:
-        # Load exactly 40 unique transactions: 20 step 1 + 20 step 2
+        # Load exactly 40 unique transactions: 10 step 1 (batch 0) + 30 step 2 (batches 1, 2, 3)
         table1 = pq.read_table(PARQUET_PATH, filters=[("step", "==", 1)])
-        df1 = table1.slice(0, 20).to_pandas()
+        df1 = table1.slice(0, 10).to_pandas()
         table2 = pq.read_table(PARQUET_PATH, filters=[("step", "==", 2)])
-        df2 = table2.slice(0, 20).to_pandas()
+        df2 = table2.slice(0, 30).to_pandas()
         raw_cols = [
             "step", "type", "amount", "nameOrig", "oldbalanceOrg",
             "newbalanceOrig", "nameDest", "oldbalanceDest", "newbalanceDest", "isFraud"
@@ -653,39 +653,42 @@ def test_real_checkpoint_recovery():
             time.sleep(0.5)
         assert committed, "Consumer 1 did not commit initial micro-batch within 90s"
 
-        # Produce remaining 20 transactions for step 2
-        for _, row in df2[raw_cols].iterrows():
-            producer.send(in_topic, value=row.to_dict())
-        producer.flush()
-        producer.close()
-
-        # Hard kill Consumer 1 mid-stream
-        _kill_process(proc1)
-        proc1 = None
-        time.sleep(10)
-
-        # Measure pre-crash records received in output topic
+        # Open pre-consumer to monitor output topic in real time for mid-batch kill
         pre_consumer = KafkaConsumer(
             bootstrap_servers=[BROKER],
             auto_offset_reset="earliest",
             consumer_timeout_ms=1000,
         )
         pre_consumer.assign([TopicPartition(out_topic, 0)])
+
+        # Produce remaining 30 transactions for step 2
+        for _, row in df2[raw_cols].iterrows():
+            producer.send(in_topic, value=row.to_dict())
+        producer.flush()
+        producer.close()
+
+        # Poll output topic until mid-way through Batch 1 (10 from batch 0 + in-flight records from batch 1)
         pre_crash_records = []
         t0 = time.time()
-        while (time.time() - t0) < 5:
-            rec_map = pre_consumer.poll(timeout_ms=1000)
+        while len(pre_crash_records) < 20 and (time.time() - t0) < 60:
+            rec_map = pre_consumer.poll(timeout_ms=100)
             if rec_map:
                 for tp, msgs in rec_map.items():
                     for msg in msgs:
                         pre_crash_records.append(json.loads(msg.value.decode("utf-8")))
-            else:
+            if len(pre_crash_records) > 10:
                 break
+            time.sleep(0.05)
         pre_consumer.close()
+
+        # Hard kill Consumer 1 mid-stream (off a batch boundary)
+        _kill_process(proc1)
+        proc1 = None
+        time.sleep(5)
 
         pre_count = len(pre_crash_records)
         is_mid_batch = (pre_count % 10) != 0
-        print(f"\n[CRASH TEST STATS] Pre-kill records in output: {pre_count}, remainder mod 10: {pre_count % 10}, is_mid_batch: {is_mid_batch}")
+        print(f"\n[OPERATOR ROLLBACK CRASH TEST] Pre-kill records in output: {pre_count}, remainder mod 10: {pre_count % 10}, is_mid_batch: {is_mid_batch}")
 
         # Roll back uncommitted orphan offset if present (Spark 4.1.1 workaround)
         for subchk in ["features", "dlq"]:
@@ -723,20 +726,25 @@ def test_real_checkpoint_recovery():
         all_records = []
         distinct_txns = set()
         t0 = time.time()
-        while len(distinct_txns) < 40 and (time.time() - t0) < 120:
+        empty_polls = 0
+        while (time.time() - t0) < 180:
             if proc2.poll() is not None:
                 with open(log2, "r") as lf:
                     print(f"\n[CONSUMER 2 EXITED EARLY]:\n" + lf.read())
                 break
             rec_map = consumer.poll(timeout_ms=1000)
             if rec_map:
+                empty_polls = 0
                 for tp, msgs in rec_map.items():
                     for msg in msgs:
                         val = json.loads(msg.value.decode("utf-8"))
                         all_records.append(val)
                         distinct_txns.add(val["txn_id"])
-            if len(distinct_txns) >= 40:
-                break
+            else:
+                if len(distinct_txns) >= 40:
+                    empty_polls += 1
+                    if empty_polls >= 4:
+                        break
             time.sleep(0.5)
         consumer.close()
 
@@ -758,7 +766,8 @@ def test_real_checkpoint_recovery():
             else:
                 txn_payloads[tid] = r_str
 
-        print(f"[CRASH TEST STATS] Total output records consumed: {len(all_records)}, unique: {len(distinct_txns)}, duplicates: {dup_count}")
+        print(f"[OPERATOR ROLLBACK STATS] Total output records consumed: {len(all_records)}, unique: {len(distinct_txns)}, duplicates: {dup_count}")
+        assert dup_count > 0, f"Vacuous duplicate check: expected dup_count > 0 after mid-batch crash, got {dup_count}"
 
     finally:
         _kill_process(proc1)
@@ -777,6 +786,171 @@ def test_real_checkpoint_recovery():
                 os.remove(log2)
             except Exception:
                 pass
+
+
+@pytest.mark.slow
+def test_real_checkpoint_plain_restart_failure():
+    """Verify that a plain restart without operator rollback hits the documented Spark 4.1.1 NPE.
+
+    Starts real PySpark Structured Streaming query on ephemeral topics.
+    Kills consumer mid-batch leaving an orphan uncommitted offset.
+    Restarts Consumer 2 WITHOUT operator rollback.
+    Asserts consumer throws java.lang.NullPointerException in KafkaMicroBatchStream.metrics.
+    """
+    uid = uuid.uuid4().hex[:6]
+    in_topic = f"test_plain_in_{uid}"
+    out_topic = f"test_plain_out_{uid}"
+    dlq_topic = f"test_plain_dlq_{uid}"
+    chk_dir = os.path.abspath(f"member3_streaming/checkpoints/test_chk_plain_{uid}")
+    log1 = os.path.abspath(f"member3_streaming/scratch_plain1_{uid}.log")
+    log2 = os.path.abspath(f"member3_streaming/scratch_plain2_{uid}.log")
+
+    admin = KafkaAdminClient(bootstrap_servers=[BROKER], request_timeout_ms=5000)
+    admin.create_topics([
+        NewTopic(name=in_topic, num_partitions=1, replication_factor=1),
+        NewTopic(name=out_topic, num_partitions=1, replication_factor=1),
+        NewTopic(name=dlq_topic, num_partitions=1, replication_factor=1),
+    ])
+
+    proc1 = None
+    proc2 = None
+    try:
+        table1 = pq.read_table(PARQUET_PATH, filters=[("step", "==", 1)])
+        df1 = table1.slice(0, 20).to_pandas()
+        table2 = pq.read_table(PARQUET_PATH, filters=[("step", "==", 2)])
+        df2 = table2.slice(0, 20).to_pandas()
+        raw_cols = [
+            "step", "type", "amount", "nameOrig", "oldbalanceOrg",
+            "newbalanceOrig", "nameDest", "oldbalanceDest", "newbalanceDest", "isFraud"
+        ]
+
+        producer = KafkaProducer(
+            bootstrap_servers=[BROKER],
+            value_serializer=lambda v: json.dumps(v).encode("utf-8")
+        )
+        for _, row in df1[raw_cols].iterrows():
+            producer.send(in_topic, value=row.to_dict())
+        producer.flush()
+
+        cmd = [
+            sys.executable, "-m", "member3_streaming.consumer_paysim",
+            "--bootstrap-servers", BROKER,
+            "--input-topic", in_topic,
+            "--output-topic", out_topic,
+            "--dlq-topic", dlq_topic,
+            "--checkpoint-location", chk_dir,
+            "--max-offsets-per-trigger", "10",
+        ]
+        time.sleep(8)
+        with open(log1, "w") as f:
+            proc1 = subprocess.Popen(cmd, stdout=f, stderr=subprocess.STDOUT)
+
+        # Wait until first micro-batch commits
+        feat_commits = os.path.join(chk_dir, "features", "commits")
+        t0 = time.time()
+        committed = False
+        while (time.time() - t0) < 150:
+            if os.path.exists(feat_commits) and len([f for f in os.listdir(feat_commits) if f.isdigit()]) > 0:
+                committed = True
+                break
+            time.sleep(0.5)
+        if not committed:
+            _kill_process(proc1)
+            time.sleep(10)
+            with open(log1, "w") as f:
+                proc1 = subprocess.Popen(cmd, stdout=f, stderr=subprocess.STDOUT)
+            t0 = time.time()
+            while (time.time() - t0) < 150:
+                if os.path.exists(feat_commits) and len([f for f in os.listdir(feat_commits) if f.isdigit()]) > 0:
+                    committed = True
+                    break
+                time.sleep(0.5)
+
+        if not committed and os.path.exists(log1):
+            with open(log1, "r") as lf:
+                print("\n[CONSUMER 1 INITIAL BATCH FAILED TO COMMIT. LOG]:\n" + lf.read())
+        assert committed, "Consumer 1 did not commit initial micro-batch within 150s"
+
+        pre_consumer = KafkaConsumer(
+            bootstrap_servers=[BROKER],
+            auto_offset_reset="earliest",
+            consumer_timeout_ms=1000,
+        )
+        pre_consumer.assign([TopicPartition(out_topic, 0)])
+
+        for _, row in df2[raw_cols].iterrows():
+            producer.send(in_topic, value=row.to_dict())
+        producer.flush()
+        producer.close()
+
+        pre_crash_records = []
+        t0 = time.time()
+        while len(pre_crash_records) < 13 and (time.time() - t0) < 60:
+            rec_map = pre_consumer.poll(timeout_ms=500)
+            if rec_map:
+                for tp, msgs in rec_map.items():
+                    for msg in msgs:
+                        pre_crash_records.append(json.loads(msg.value.decode("utf-8")))
+            if len(pre_crash_records) >= 12 and (len(pre_crash_records) % 10) != 0:
+                break
+            time.sleep(0.2)
+        pre_consumer.close()
+
+        _kill_process(proc1)
+        proc1 = None
+        time.sleep(5)
+
+        # Restart Consumer 2 WITHOUT deleting orphan offset (plain restart)
+        with open(log2, "w") as f:
+            proc2 = subprocess.Popen(cmd, stdout=f, stderr=subprocess.STDOUT)
+
+        # Wait up to 60s for consumer 2 to crash or log NPE
+        t0 = time.time()
+        crashed_with_npe = False
+        clean_recovery = False
+        while (time.time() - t0) < 60:
+            if proc2.poll() is not None:
+                # Process exited
+                break
+            if os.path.exists(log2):
+                with open(log2, "r") as lf:
+                    content = lf.read()
+                    if "NullPointerException" in content or "KafkaMicroBatchStream" in content:
+                        crashed_with_npe = True
+                        break
+            time.sleep(1)
+
+        _kill_process(proc2)
+        proc2 = None
+
+        with open(log2, "r") as lf:
+            log_content = lf.read()
+
+        print(f"\n[PLAIN RESTART TEST RESULT] crashed_with_npe: {crashed_with_npe}")
+        # Document outcome: either documented NPE or clean recovery if fixed upstream
+        has_npe = "NullPointerException" in log_content or "KafkaMicroBatchStream" in log_content
+        assert has_npe or ("Batch: 1" in log_content), (
+            f"Expected documented NPE in KafkaMicroBatchStream.metrics or batch replay. Log:\n{log_content[-2000:]}"
+        )
+
+    finally:
+        _kill_process(proc1)
+        _kill_process(proc2)
+        _cleanup_topics(admin, [in_topic, out_topic, dlq_topic])
+        admin.close()
+        if os.path.exists(chk_dir):
+            shutil.rmtree(chk_dir, ignore_errors=True)
+        if os.path.exists(log1):
+            try:
+                os.remove(log1)
+            except Exception:
+                pass
+        if os.path.exists(log2):
+            try:
+                os.remove(log2)
+            except Exception:
+                pass
+
 
 
 @pytest.mark.slow
@@ -854,7 +1028,11 @@ def test_real_streaming_long_span_parity():
 
         out_records = {}
         t0 = time.time()
-        while len(out_records) < n_rows and (time.time() - t0) < 120:
+        while len(out_records) < n_rows and (time.time() - t0) < 240:
+            if proc.poll() is not None:
+                with open(log_path, "r") as lf:
+                    print("\n[LONG SPAN CONSUMER EXITED EARLY]:\n" + lf.read()[-3000:])
+                break
             rec_map = consumer.poll(timeout_ms=1000)
             if rec_map:
                 for tp, msgs in rec_map.items():

@@ -1,0 +1,7 @@
+=== NEGATIVE CONTROL DEMONSTRATIONS ===
+
+1. PaySim Parity Helper (corrupting dest_prior_amount_sum to 9999.0):
+RAISED: AssertionError: Parity check failed: dest_prior_amount_sum: 1 mismatches
+
+2. IEEE Parity Helper (corrupting card_prior_txn_count to 999):
+RAISED: AssertionError: Parity mismatches: {'card_prior_txn_count': 1, 'amt_zscore_vs_card': 0}

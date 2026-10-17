@@ -1,0 +1,80 @@
+============================= test session starts =============================
+platform win32 -- Python 3.12.6, pytest-9.0.2, pluggy-1.6.0 -- C:\Users\akshi\AppData\Local\Programs\Python\Python312\python.exe
+cachedir: .pytest_cache
+rootdir: E:\vs code\projects\data-science\Real-Time-Financial-Fraud-Intelligence
+configfile: pytest.ini
+plugins: anyio-4.12.0, langsmith-0.3.45
+collecting ... collected 25 items
+
+member3_streaming/tests/test_contract.py::test_contract_columns_match_paysim_output_schema PASSED [  4%]
+member3_streaming/tests/test_contract.py::test_contract_dlq_codes_match_code_constants PASSED [  8%]
+member3_streaming/tests/test_contract.py::test_contract_tier_b_rationale PASSED [ 12%]
+member3_streaming/tests/test_contract.py::test_dlq_record_schema_fields PASSED [ 16%]
+member3_streaming/tests/test_fast_unit.py::test_kafka_connectivity PASSED [ 20%]
+member3_streaming/tests/test_fast_unit.py::test_schema_parsing_valid_and_malformed PASSED [ 24%]
+member3_streaming/tests/test_fast_unit.py::test_all_dlq_reason_codes_unit PASSED [ 28%]
+member3_streaming/tests/test_fast_unit.py::test_negative_control_parity_failure PASSED [ 32%]
+member3_streaming/tests/test_ieee_contract.py::test_ieee_contract_columns_match_spark_schema_and_parquet PASSED [ 36%]
+member3_streaming/tests/test_ieee_contract.py::test_ieee_contract_dlq_codes_match_code_constants PASSED [ 40%]
+member3_streaming/tests/test_ieee_contract.py::test_ieee_dlq_record_schema_fields PASSED [ 44%]
+member3_streaming/tests/test_ieee_streaming.py::test_ieee_parity_negative_control PASSED [ 48%]
+member3_streaming/tests/test_ieee_streaming.py::test_ieee_stateless_parity_small PASSED [ 52%]
+member3_streaming/tests/test_ieee_streaming.py::test_ieee_stateful_tie_boundary_oracle PASSED [ 56%]
+member3_streaming/tests/test_ieee_streaming.py::test_ieee_stateful_long_span_parity PASSED [ 60%]
+member3_streaming/tests/test_ieee_streaming.py::test_ieee_late_event_routing PASSED [ 64%]
+member3_streaming/tests/test_ieee_streaming.py::test_ieee_all_dlq_codes PASSED [ 68%]
+member3_streaming/tests/test_ieee_streaming.py::test_ieee_checkpoint_recovery PASSED [ 72%]
+member3_streaming/tests/test_real_streaming.py::test_real_streaming_parity PASSED [ 76%]
+member3_streaming/tests/test_real_streaming.py::test_real_streaming_all_dlq_codes PASSED [ 80%]
+member3_streaming/tests/test_real_streaming.py::test_real_streaming_late_event_routing PASSED [ 84%]
+member3_streaming/tests/test_real_streaming.py::test_real_streaming_late_event_pending PASSED [ 88%]
+member3_streaming/tests/test_real_streaming.py::test_real_checkpoint_recovery PASSED [ 92%]
+member3_streaming/tests/test_real_streaming.py::test_real_checkpoint_plain_restart_failure PASSED [ 96%]
+member3_streaming/tests/test_real_streaming.py::test_real_streaming_long_span_parity PASSED [100%]
+
+============================== slowest durations ==============================
+125.41s call     member3_streaming/tests/test_ieee_streaming.py::test_ieee_checkpoint_recovery
+101.91s call     member3_streaming/tests/test_real_streaming.py::test_real_checkpoint_recovery
+95.74s call     member3_streaming/tests/test_real_streaming.py::test_real_checkpoint_plain_restart_failure
+63.45s call     member3_streaming/tests/test_real_streaming.py::test_real_streaming_late_event_pending
+60.37s call     member3_streaming/tests/test_ieee_streaming.py::test_ieee_stateful_long_span_parity
+51.21s call     member3_streaming/tests/test_ieee_streaming.py::test_ieee_late_event_routing
+46.82s call     member3_streaming/tests/test_real_streaming.py::test_real_streaming_long_span_parity
+43.44s call     member3_streaming/tests/test_real_streaming.py::test_real_streaming_all_dlq_codes
+42.76s call     member3_streaming/tests/test_real_streaming.py::test_real_streaming_late_event_routing
+40.63s call     member3_streaming/tests/test_ieee_streaming.py::test_ieee_stateless_parity_small
+39.23s call     member3_streaming/tests/test_real_streaming.py::test_real_streaming_parity
+38.89s call     member3_streaming/tests/test_ieee_streaming.py::test_ieee_stateful_tie_boundary_oracle
+31.67s call     member3_streaming/tests/test_ieee_streaming.py::test_ieee_all_dlq_codes
+3.00s teardown member3_streaming/tests/test_real_streaming.py::test_real_streaming_long_span_parity
+3.00s teardown member3_streaming/tests/test_ieee_streaming.py::test_ieee_stateful_long_span_parity
+3.00s teardown member3_streaming/tests/test_ieee_streaming.py::test_ieee_checkpoint_recovery
+3.00s teardown member3_streaming/tests/test_ieee_streaming.py::test_ieee_late_event_routing
+3.00s teardown member3_streaming/tests/test_contract.py::test_contract_tier_b_rationale
+3.00s teardown member3_streaming/tests/test_contract.py::test_dlq_record_schema_fields
+3.00s teardown member3_streaming/tests/test_ieee_streaming.py::test_ieee_all_dlq_codes
+3.00s teardown member3_streaming/tests/test_real_streaming.py::test_real_checkpoint_plain_restart_failure
+3.00s teardown member3_streaming/tests/test_fast_unit.py::test_schema_parsing_valid_and_malformed
+3.00s teardown member3_streaming/tests/test_contract.py::test_contract_columns_match_paysim_output_schema
+3.00s teardown member3_streaming/tests/test_real_streaming.py::test_real_streaming_all_dlq_codes
+3.00s teardown member3_streaming/tests/test_ieee_contract.py::test_ieee_contract_columns_match_spark_schema_and_parquet
+3.00s teardown member3_streaming/tests/test_fast_unit.py::test_kafka_connectivity
+3.00s teardown member3_streaming/tests/test_ieee_streaming.py::test_ieee_stateful_tie_boundary_oracle
+3.00s teardown member3_streaming/tests/test_real_streaming.py::test_real_streaming_late_event_routing
+3.00s teardown member3_streaming/tests/test_fast_unit.py::test_all_dlq_reason_codes_unit
+3.00s teardown member3_streaming/tests/test_real_streaming.py::test_real_streaming_parity
+3.00s teardown member3_streaming/tests/test_ieee_streaming.py::test_ieee_stateless_parity_small
+3.00s teardown member3_streaming/tests/test_ieee_contract.py::test_ieee_dlq_record_schema_fields
+3.00s teardown member3_streaming/tests/test_real_streaming.py::test_real_streaming_late_event_pending
+3.00s teardown member3_streaming/tests/test_contract.py::test_contract_dlq_codes_match_code_constants
+3.00s teardown member3_streaming/tests/test_ieee_contract.py::test_ieee_contract_dlq_codes_match_code_constants
+3.00s teardown member3_streaming/tests/test_ieee_streaming.py::test_ieee_parity_negative_control
+3.00s teardown member3_streaming/tests/test_fast_unit.py::test_negative_control_parity_failure
+3.00s teardown member3_streaming/tests/test_real_streaming.py::test_real_checkpoint_recovery
+0.32s call     member3_streaming/tests/test_ieee_contract.py::test_ieee_contract_columns_match_spark_schema_and_parquet
+0.20s call     member3_streaming/tests/test_ieee_streaming.py::test_ieee_parity_negative_control
+0.10s call     member3_streaming/tests/test_fast_unit.py::test_kafka_connectivity
+0.02s call     member3_streaming/tests/test_fast_unit.py::test_negative_control_parity_failure
+
+(33 durations < 0.005s hidden.  Use -vv to show these durations.)
+======================= 25 passed in 859.53s (0:14:19) ========================
