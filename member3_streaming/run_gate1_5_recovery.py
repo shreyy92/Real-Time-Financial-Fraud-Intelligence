@@ -170,9 +170,18 @@ def main():
     print(f"  Kill Count % 500:         {kill_count % 500} (Non-zero confirms mid-batch kill)")
     print("=" * 80)
 
-    # Inspect offsets/0 provider line
+    # Inspect post-crash checkpoint state
     offsets_dir = os.path.join(CHK_DIR, "features", "offsets")
     commits_dir = os.path.join(CHK_DIR, "features", "commits")
+    off_files = sorted([int(f) for f in os.listdir(offsets_dir) if f.isdigit()]) if os.path.exists(offsets_dir) else []
+    comm_files = sorted([int(f) for f in os.listdir(commits_dir) if f.isdigit()]) if os.path.exists(commits_dir) else []
+    orphan_files = [f for f in off_files if f not in comm_files]
+
+    print("\nPost-Crash Checkpoint Audit:")
+    print(f"  Offsets directory files: {off_files}")
+    print(f"  Commits directory files: {comm_files}")
+    print(f"  Uncommitted orphan offset files: {orphan_files}")
+
     offset_0_path = os.path.join(offsets_dir, "0")
     if os.path.exists(offset_0_path):
         with open(offset_0_path, "r", encoding="utf-8") as f:
@@ -186,12 +195,22 @@ def main():
             else:
                 print(f"State provider line (header): {lines[0].strip() if lines else 'EMPTY'}")
 
-    # Step 4: First restart WITHOUT any workaround
+    # Step 4: First restart WITHOUT any workaround on an isolated snapshot of the uncommitted checkpoint
     print("\n" + "=" * 80)
     print("STEP 4: FIRST RESTART WITHOUT WORKAROUND (PLAIN RESTART)")
     print("=" * 80)
+    chk_plain_test = os.path.abspath(f"{CHK_DIR}_plain_restart_test")
+    if os.path.exists(chk_plain_test):
+        shutil.rmtree(chk_plain_test, ignore_errors=True)
+    shutil.copytree(CHK_DIR, chk_plain_test)
+
+    cmd_plain = list(cmd_run1)
+    for idx_arg, arg_val in enumerate(cmd_plain):
+        if arg_val == "--checkpoint-location":
+            cmd_plain[idx_arg + 1] = chk_plain_test
+
     with open(LOG_PATH_RESTART1, "w") as f_r1:
-        proc_r1 = subprocess.Popen(cmd_run1, stdout=f_r1, stderr=subprocess.STDOUT)
+        proc_r1 = subprocess.Popen(cmd_plain, stdout=f_r1, stderr=subprocess.STDOUT)
 
     # Monitor for exit or exception
     plain_restart_succeeded = False
@@ -205,11 +224,6 @@ def main():
             r1_content = f.read()
         if "NullPointerException" in r1_content or "terminated with error" in r1_content:
             time.sleep(2)
-            break
-        consumer.seek_to_end(tp)
-        curr_pos = consumer.position(tp)
-        if curr_pos >= kill_count + 1500:
-            plain_restart_succeeded = True
             break
         time.sleep(2)
 
@@ -229,57 +243,34 @@ def main():
         print("Plain restart did not progress cleanly; terminating plain restart.")
         kill_process(proc_r1.pid)
 
-    if not plain_restart_succeeded:
-        kill_process(proc_r1.pid)
-        time.sleep(2)
-        print("\n" + "=" * 80)
-        print("OPERATOR WORKAROUND REQUIRED: mid-batch crash requires operator rollback")
-        print("=" * 80)
+    shutil.rmtree(chk_plain_test, ignore_errors=True)
 
-        # Documented operator rollback: find max commit index, delete uncommitted offset files and their .crc files
-        committed_batches = []
-        if os.path.exists(commits_dir):
-            for fname in os.listdir(commits_dir):
-                if fname.isdigit():
-                    committed_batches.append(int(fname))
-        max_commit = max(committed_batches) if committed_batches else -1
-        print(f"Max committed batch index: {max_commit}")
+    # Step 5: Operator Workaround - Remove ONLY uncommitted orphan offset files (no commits deleted!)
+    print("\n" + "=" * 80)
+    print("OPERATOR WORKAROUND REQUIRED: mid-batch crash requires operator rollback")
+    print("=" * 80)
+    removed_orphan_files = []
+    for f in orphan_files:
+        fpath = os.path.join(offsets_dir, str(f))
+        crcpath = os.path.join(offsets_dir, f".{f}.crc")
+        if os.path.exists(fpath):
+            os.remove(fpath)
+            removed_orphan_files.append(f"offsets/{f}")
+        if os.path.exists(crcpath):
+            os.remove(crcpath)
+            removed_orphan_files.append(f"offsets/.{f}.crc")
 
-        removed_files = []
-        for d in [offsets_dir, commits_dir]:
-            if os.path.exists(d):
-                for fname in os.listdir(d):
-                    for bad_idx in range(max_commit + 1, max_commit + 10):
-                        if fname == str(bad_idx) or fname == f".{bad_idx}.crc" or f".{bad_idx}." in fname:
-                            fpath = os.path.join(d, fname)
-                            try:
-                                os.remove(fpath)
-                                removed_files.append(f"{os.path.basename(d)}/{fname}")
-                            except Exception as e:
-                                print(f"Error removing {fpath}: {e}")
+    # Assert no files were deleted from commits/
+    remaining_commits = sorted([int(f) for f in os.listdir(commits_dir) if f.isdigit()])
+    assert remaining_commits == comm_files, f"Commits modified! Expected {comm_files}, got {remaining_commits}"
 
-        # If offsets == commits, delete max_commit files so it cleanly rolls back to previous batch
-        if not removed_files and max_commit >= 0:
-            target_idx = max_commit
-            for d in [offsets_dir, commits_dir]:
-                if os.path.exists(d):
-                    for fname in os.listdir(d):
-                        if fname == str(target_idx) or fname == f".{target_idx}.crc" or f".{target_idx}." in fname:
-                            fpath = os.path.join(d, fname)
-                            try:
-                                os.remove(fpath)
-                                removed_files.append(f"{os.path.basename(d)}/{fname}")
-                            except Exception as e:
-                                print(f"Error removing {fpath}: {e}")
+    print(f"OPERATOR WORKAROUND: Removed uncommitted orphan offset file(s): {removed_orphan_files}")
+    print(f"OPERATOR WORKAROUND: Commits directory files deleted: 0 (remaining commits: {remaining_commits})")
 
-        print(f"OPERATOR WORKAROUND: Removed uncommitted orphan offset file(s): {removed_files}")
-
-        # Restart with workaround
-        print("\nStep 5: Restarting consumer after operator workaround...")
-        with open(LOG_PATH_RESTART2, "w") as f_r2:
-            proc_final = subprocess.Popen(cmd_run1, stdout=f_r2, stderr=subprocess.STDOUT)
-    else:
-        proc_final = proc_r1
+    # Restart with workaround to completion
+    print("\nStep 6: Restarting consumer after operator workaround to completion...")
+    with open(LOG_PATH_RESTART2, "w") as f_r2:
+        proc_final = subprocess.Popen(cmd_run1, stdout=f_r2, stderr=subprocess.STDOUT)
 
     # Monitor to completion
     print(f"\nMonitoring stream output until reaching all records...")

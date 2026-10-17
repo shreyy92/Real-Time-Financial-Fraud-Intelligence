@@ -1,0 +1,15 @@
+=== Fresh-Clone Import Check ===
+Cloning branch member3-streaming to C:\Users\akshi\AppData\Local\Temp\fresh_clone_0a5x15pw...
+GIT CLONE STDOUT:
+
+GIT CLONE STDERR:
+Cloning into 'C:\Users\akshi\AppData\Local\Temp\fresh_clone_0a5x15pw'...
+
+Running import check in C:\Users\akshi\AppData\Local\Temp\fresh_clone_0a5x15pw...
+IMPORT TEST STDOUT:
+SUCCESS: Both consumer_paysim and consumer_ieee imported cleanly!
+
+IMPORT TEST STDERR:
+
+IMPORT TEST RETURNCODE: 0
+=== Fresh-Clone Import Check PASSED ===

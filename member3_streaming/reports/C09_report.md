@@ -56,16 +56,20 @@
 | **1.2** | Oracle Tie & Boundary Test | 10 handcrafted edge-cases | Ties, $t-W, t-W-1, t-1, t$ exact match vs Member 2 batch oracle; negative control fails | **PASS** | `reports/raw/C09_gate1_2.txt`: 0 mismatches against batch function; negative control confirmed prior windowing produced 4 mismatches |
 | **1.3** | 20k Full Parity | 20,000 | 483 columns evaluated vs `ieee_features.parquet` at 1e-6 tol; DLQ = 0 | **PASS** | `reports/raw/C09_gate1_3.txt`: 0 mismatches across all 483 columns; DLQ = 0; non-vacuous positive counts verified |
 | **1.4** | Long-Span Parity & Eviction | 39,965 (15 full cards) | 11 stateful columns match batch; 7d eviction tested on >90% rows; max buffer <= 2500 | **PASS** | `reports/raw/C09_gate1_4.txt`: 0 mismatches across 11 stateful columns; 37,401 rows (93.58%) tested eviction; max 7d buffer = 1678; DLQ = 0 |
-| **1.5** | Mid-Batch Crash Recovery | 39,965 (15 full cards) | Hard kill mid-batch (`taskkill /F /T`); reproduce NPE; operator rollback; 0 missing, byte-identical duplicates, 0 parity mismatches | **PASS** | `reports/raw/C09_gate1_5.txt`: Kill at count 2156 (% 500 = 156); NPE reproduced; rollback applied; 39,965 distinct (0 missing); 999 duplicates (100% byte-identical); 0 stateful mismatches |
+| **1.5** | Mid-Batch Crash Recovery | 39,965 (15 full cards) | Hard kill mid-batch (`taskkill /F /T`); reproduce NPE; operator rollback; 0 missing, byte-identical duplicates, 0 parity mismatches | **PASS** | `reports/raw/C09_gate1_5.txt`: Kill at count 2087 (% 500 = 87); NPE reproduced; orphan-only rollback applied; 39,965 distinct (0 missing); 210 duplicates (100% byte-identical); 0 stateful mismatches |
 
 ## 6. Crash Recovery Details (Gate 1.5)
-- **Kill Condition:** Hard kill executed via `taskkill /F /T` at output count **2156** (`count % 500 = 156`).
+- **Kill Condition:** Hard kill executed via `taskkill /F /T` at output count **2087** (`count % 500 = 87`).
+- **Post-Crash Checkpoint State Prior to Any Restart:**
+  - Offsets directory files: `[0, 1, 2, 3, 4]`
+  - Commits directory files: `[0, 1, 2, 3]`
+  - Uncommitted orphan offset files: `[4]` (strictly uncommitted; `commits/4` does not exist).
 - **Checkpoint State Provider Line (`offsets/0`):**
   ```json
-  {"batchWatermarkMs":0,"batchTimestampMs":1792156134461,"conf":{"spark.sql.streaming.stateStore.providerClass":"org.apache.spark.sql.execution.streaming.state.RocksDBStateStoreProvider","spark.sql.streaming.stateStore.rocksdb.formatVersion":"5","spark.sql.streaming.stateStore.encodingFormat":"unsaferow","spark.sql.streaming.statefulOperator.useStrictDistribution":"true","spark.sql.streaming.flatMapGroupsWithState.stateFormatVersion":"2","spark.sql.streaming.multipleWatermarkPolicy":"min","spark.sql.streaming.aggregation.stateFormatVersion":"2","spark.sql.shuffle.partitions":"4","spark.sql.streaming.join.stateFormatVersion":"2","spark.sql.streaming.stateStore.compression.codec":"lz4","spark.sql.optimizer.pruneFiltersCanPruneStreamingSubplan":"false"}}
+  {"batchWatermarkMs":0,"batchTimestampMs":1792217691179,"conf":{"spark.sql.streaming.stateStore.providerClass":"org.apache.spark.sql.execution.streaming.state.RocksDBStateStoreProvider","spark.sql.streaming.stateStore.rocksdb.formatVersion":"5","spark.sql.streaming.stateStore.encodingFormat":"unsaferow","spark.sql.streaming.statefulOperator.useStrictDistribution":"true","spark.sql.streaming.flatMapGroupsWithState.stateFormatVersion":"2","spark.sql.streaming.multipleWatermarkPolicy":"min","spark.sql.streaming.aggregation.stateFormatVersion":"2","spark.sql.shuffle.partitions":"4","spark.sql.streaming.join.stateFormatVersion":"2","spark.sql.streaming.stateStore.compression.codec":"lz4","spark.sql.optimizer.pruneFiltersCanPruneStreamingSubplan":"false"}}
   ```
 - **Plain Restart Attempt (Without Workaround):**
-  Failed immediately with exit code 1. First 15 lines of exception from consumer log:
+  Failed immediately on an isolated snapshot of the uncommitted checkpoint with exit code 1. First 15 lines of exception from consumer log:
   ```text
   java.lang.NullPointerException: Cannot invoke "scala.collection.IterableOps.map(scala.Function1)" because the return value of "scala.Option.get()" is null
   	at org.apache.spark.sql.kafka010.KafkaMicroBatchStream$.metrics(KafkaMicroBatchStream.scala:520)
@@ -84,16 +88,16 @@
   	at org.apache.spark.sql.execution.streaming.runtime.TriggerExecutor.runOneBatch$(TriggerExecutor.scala:38)
   ```
 - **Recovery Mode:** `mid-batch crash requires operator rollback`
-- **Operator Workaround Applied:**
-  1. Inspected checkpoint commits: max committed batch index was 4 (`commits/4`).
-  2. Identified uncommitted orphan offset file `offsets/4` and associated checksum file `offsets/.4.crc`.
-  3. Cleaned uncommitted batch artifacts: `['offsets/.4.crc', 'offsets/4', 'commits/.4.crc', 'commits/4']`.
-  4. Successfully relaunched consumer stream.
+- **Operator Workaround Applied (Strict Orphan-Only Rollback):**
+  1. Identified uncommitted orphan offset file `offsets/4` and associated checksum file `offsets/.4.crc`.
+  2. Cleaned ONLY uncommitted orphan offset files: `['offsets/4', 'offsets/.4.crc']`.
+  3. Commits directory files deleted: **0** (remaining commits: `[0, 1, 2, 3]`). No committed batch was deleted.
+  4. Successfully relaunched consumer stream on cleaned checkpoint.
 - **Recovery Audit Results:**
-  - Total Output Records: 40,964
+  - Total Output Records: 40,175
   - Distinct TransactionIDs: 39,965 / 39,965
   - Missing TransactionIDs: 0
-  - Duplicate Records: 999
+  - Duplicate Records: 210 (matching the partial records emitted during batch 4 before kill)
   - Duplicates Byte-Identical: **yes** (100% byte identical across all JSON fields)
   - Post-dedupe Stateful Parity vs `ieee_features.parquet`: **0 mismatches** across all 11 stateful columns.
 
