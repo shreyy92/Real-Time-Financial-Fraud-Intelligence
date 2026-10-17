@@ -15,7 +15,7 @@
    - Root cause: Spark 4.1.1 NullPointerException in KafkaMicroBatchStream.metrics when replaying an uncommitted batch (upstream ticket not verified).
 3. **StateStoreProvider Independence**:
    - The same restart failure was reproduced with default `org.apache.spark.sql.execution.streaming.state.HDFSBackedStateStoreProvider`.
-   - The identical NPE was produced in `KafkaMicroBatchStream.metrics`, confirming conclusively that the bug resides in the Spark Kafka connector progress reporting layer, not in `RocksDBStateStoreProvider`.
+   - The identical NPE was produced in `KafkaMicroBatchStream.metrics`, confirming that the failure reproduces across state store providers. *(Correction: observed only with stateful queries (a stateless control restarted cleanly), root cause UNVERIFIED.)*
 4. **Parquet Ground Truth Alignment**:
    - `data/features/paysim_features.parquet` is not sorted by simulation step (rows range from step 1 to 734 across partitions).
    - Validating the first 20,000 streaming transactions requires matching on `txn_id` against the offline feature store. Joining on `txn_id` demonstrated 0 mismatches across all 41 compared columns.

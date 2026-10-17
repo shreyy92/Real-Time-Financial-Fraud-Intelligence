@@ -1,0 +1,14 @@
+============================= test session starts =============================
+platform win32 -- Python 3.12.6, pytest-9.0.2, pluggy-1.6.0 -- C:\Users\akshi\AppData\Local\Programs\Python\Python312\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\akshi\AppData\Local\Temp\fresh_clone_pdf_tip
+configfile: pytest.ini
+plugins: anyio-4.12.0, langsmith-0.3.45
+collecting ... collected 1 item
+
+member3_streaming/tests/test_ieee_streaming.py::test_ieee_checkpoint_recovery 
+[IEEE OPERATOR ROLLBACK CRASH TEST] Pre-kill records: 14, remainder mod 10: 4
+[IEEE CRASH STATS] Total records: 44, unique: 40, duplicates: 4
+PASSED
+
+======================== 1 passed in 179.14s (0:02:59) ========================

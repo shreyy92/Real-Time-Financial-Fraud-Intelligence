@@ -62,6 +62,10 @@
 ## 5. Raw Output Pointers and Excerpts
 
 ### 5.1 Full Pytest Run Summary (`member3_streaming/reports/raw/PC_pytest_full.txt`)
+
+> [!NOTE]
+> Note: The durations excerpt in this section was retyped for summary readability, not verbatim; the raw log file at `reports/raw/PC_pytest_full.txt` is authoritative.
+
 ```text
 Running: C:\Users\akshi\AppData\Local\Programs\Python\Python312\python.exe -m pytest -v --durations=0 member3_streaming/tests
 ============================= test session starts =============================

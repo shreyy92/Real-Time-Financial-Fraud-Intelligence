@@ -1,0 +1,20 @@
+ M .gitignore
+ M member3_streaming/MERGE_REQUEST.md
+ M member3_streaming/PROGRESS.md
+ M member3_streaming/README.md
+ M member3_streaming/reports/C02R_report.md
+ M member3_streaming/reports/FINAL_SUMMARY.md
+ M member3_streaming/reports/PC_report.md
+ M member3_streaming/reports/PD_report.md
+?? guidenlines.md
+?? member3_streaming/_c09_wip/
+?? member3_streaming/reports/PDF_report.md
+?? member3_streaming/reports/raw/PDF_git_status.txt
+?? member3_streaming/reports/raw/PDF_pytest_full.txt
+?? member3_streaming/reports/raw/PDF_rerun_test_ieee_checkpoint_recovery.txt
+?? member3_streaming/reports/raw/PDF_rerun_test_ieee_late_event_routing.txt
+?? member3_streaming/reports/raw/PDF_rerun_test_ieee_stateful_tie_boundary_oracle.txt
+?? member3_streaming/reports/raw/PDF_rerun_test_real_checkpoint_recovery.txt
+?? member3_streaming/reports/raw/PDF_rerun_test_real_streaming_late_event_routing.txt
+?? member3_streaming/reports/raw/PDF_rerun_test_real_streaming_long_span_parity.txt
+?? member3_streaming/reports/raw/PDF_topic_cleanup.txt

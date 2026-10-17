@@ -54,10 +54,10 @@ Clean end-to-end execution verified via `member3_streaming/run_phase_d_e2e_demo.
 - Downstream deduplicating consumer read all records, asserted exactly 25 deduplicated records per pipeline, and verified schema compliance (42 cols PaySim, 483 cols IEEE).
 - **Evidence**: [`reports/raw/PD_e2e_demo.txt`](raw/PD_e2e_demo.txt).
 
-### 3.4 Fresh-Clone Clean Import
-- Executed `run_phase_d_fresh_clone.py` on fresh isolated clone of `origin/member3-streaming`.
-- Verified clean import of `member3_streaming.consumer_paysim` and `member3_streaming.consumer_ieee` without missing dependencies or untracked file references.
-- **Evidence**: [`reports/raw/PD_fresh_clone_pytest.txt`](raw/PD_fresh_clone_pytest.txt).
+### 3.4 Fresh-Clone Verification (Import & Tests)
+- Executed `run_phase_d_fresh_clone.py` on fresh isolated clone of `origin/member3-streaming`:
+  - Verified clean import of `member3_streaming.consumer_paysim` and `member3_streaming.consumer_ieee` without missing dependencies or untracked file references (`reports/raw/PD_fresh_clone_pytest.txt`).
+  - Automated test suite in fresh clone: Initial continuous run yielded 19 passed / 6 failed (`reports/raw/PD_fresh_clone_pytest.txt`). In Phase D follow-up (PDF), all 6 failed tests were rerun in isolation in a new fresh clone and achieved 100% pass (6/6 passed, `reports/raw/PDF_rerun_*.txt`), and a full suite rerun in the fresh clone achieved 24 passed / 1 failed (`reports/raw/PDF_pytest_full.txt`).
 
 ---
 
@@ -65,7 +65,7 @@ Clean end-to-end execution verified via `member3_streaming/run_phase_d_e2e_demo.
 
 1. **Micro-Batch Barrier Reordering**: Events arriving within a single PySpark micro-batch are sorted ascending by timestamp/step inside the state function. Consequently, intra-batch out-of-order events are reordered rather than rejected as `LATE_EVENT`. Only inter-batch late arrivals strictly older than the committed watermark are routed to the DLQ.
 2. **Spark 4.1.1 Crash Recovery Replay NPE**: Hard-killing a stateful consumer mid-batch leaves an uncommitted offset file (`offsets/N`) without a corresponding commit file (`commits/N`). Restarting without assistance triggers an internal `KafkaMicroBatchStream.metrics` NPE (reproduced and documented in `test_real_checkpoint_plain_restart_failure`). Recovery requires the documented Operator Workaround: deleting `offsets/N` and `offsets/.N.crc` prior to restart.
-3. **Sequential Test Suite Load on Windows**: Running all 25 streaming integration tests sequentially in rapid succession generates heavy OS socket churn on Windows, which can lead to temporary `BlockManagerMasterEndpoint` timeouts unless socket release cooldowns are observed between test runs.
+3. **Continuous Test Suite Load on Windows**: Running all 25 streaming integration tests sequentially in rapid succession generates heavy OS socket churn on Windows, which can lead to temporary `BlockManagerMasterEndpoint` timeouts unless socket release cooldowns are observed between test runs (verified in PDF where isolated single runs with cooldown passed 6/6 and full suite passed 24/25).
 4. **Member 4 Sink Status**: Integration interfaces and deduplicating downstream consumers are fully implemented and demonstrated in `member3_streaming/example_consumer_member4.py` and `HANDOFF_MEMBER4.md`. However, confirmation from the downstream modeling team regarding final production sinks remains **unanswered as of 2026-10-17**.
 
 ---

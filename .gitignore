@@ -59,3 +59,9 @@ member3_streaming/**/*.log
 .env
 .env.*
 !.env.example
+
+# ============================================================
+# AUDIT & MCP ARTIFACTS
+# ============================================================
+.playwright-mcp/
+checklist_report/

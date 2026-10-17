@@ -4,15 +4,15 @@
 - **Phase**: Phase D (Chunk 12: Final Verification, Delivery, and Merge Request)
 - **Start Time**: 2026-10-17 17:10:00 IST
 - **End Time**: 2026-10-17 17:52:00 IST
-- **Status**: passed
+- **Status**: partial (fresh clone pytest: 19 passed / 6 failed in initial run PD_fresh_clone_pytest.txt; isolated reruns in PDF passed 6/6; second fresh clone full run passed 24/25)
 
 ---
 
 ## 2. Infrastructure Honesty
 | Verification Task / Gate | Real Kafka | Real Spark Structured Streaming Query | Isolation / Leftover Data | Execution Duration |
 | :--- | :--- | :--- | :--- | :--- |
-| **Clean E2E Demo (PaySim)** | Yes (`127.0.0.1:9092`) | Yes (`consumer_paysim`) | Fresh topics (`e2e_in_paysim`, `e2e_out_paysim`), fresh chk | 26.85s |
-| **Clean E2E Demo (IEEE-CIS)** | Yes (`127.0.0.1:9092`) | Yes (`consumer_ieee`) | Fresh topics (`e2e_in_ieee`, `e2e_out_ieee`), fresh chk | 32.88s |
+| **Clean E2E Demo (PaySim)** | Yes (`127.0.0.1:9092`) | Yes (`consumer_paysim`) | Fresh topics (`demo_ps_in_7ae07b`, `demo_ps_out_7ae07b`), fresh chk | 26.85s |
+| **Clean E2E Demo (IEEE-CIS)** | Yes (`127.0.0.1:9092`) | Yes (`consumer_ieee`) | Fresh topics (`demo_ieee_in_7ae07b`, `demo_ieee_out_7ae07b`), fresh chk | 32.88s |
 | **Downstream Dedupe Consumer** | Yes (`127.0.0.1:9092`) | N/A (Kafka consumer) | Read only topics produced in same run; 0 leftover data | 6.54s |
 | **Fresh-Clone Import Check** | N/A | No (Import evaluation) | Isolated git clone of `origin/member3-streaming` | 1.82s |
 | **Fresh-Clone Automated Test Suite** | Yes (`127.0.0.1:9092`) | Yes (PySpark Structured Streaming) | Ephemeral topics, isolated checkpoints | 1569.15s (26:09) |
@@ -23,7 +23,7 @@
 1. `member3_streaming/run_phase_d_e2e_demo.py` (new): End-to-end integration demo script executing producer, Spark streaming consumer, outbound delivery, and downstream deduplicating consumer across both PaySim and IEEE pipelines.
 2. `member3_streaming/reports/raw/PD_e2e_demo.txt` (new): Raw untruncated output of the clean end-to-end demo verifying 25 PaySim records (42 cols) and 25 IEEE records (483 cols).
 3. `member3_streaming/run_phase_d_fresh_clone.py` (new): Fresh clone verification runner executing clean imports and full pytest test suite on isolated clone of `origin/member3-streaming`.
-4. `member3_streaming/reports/raw/PD_fresh_clone_pytest.txt` (new): Raw execution log of the fresh clone import check and pytest suite.
+4. `member3_streaming/reports/raw/PD_fresh_clone_pytest.txt` (new): Raw execution log of the fresh clone import check and pytest suite (19 passed, 6 failed).
 5. `member3_streaming/README.md` (modified): Comprehensive module documentation including Mermaid architecture diagram, topic topology, environment prerequisites, startup commands, reset procedure, test commands, operator rollback procedure, and directory layout.
 6. `member3_streaming/reports/FINAL_SUMMARY.md` (new): End-of-project delivery summary featuring filled Roadmap cross-check table (Phases 0 through 6), verified components, known limitations, and handoff status.
 7. `member3_streaming/MERGE_REQUEST.md` (new): Merge request description file detailing deliverables, changed areas, how to run, test evidence, limitations, and reviewer checklist.
@@ -35,8 +35,8 @@
 | Checklist Item | Result | Evidence Pointer |
 | :--- | :--- | :--- |
 | Fresh-clone import check passes for both consumers | passed | `reports/raw/PD_fresh_clone_pytest.txt` line 13 |
-| Fresh-clone full pytest run executed; raw output saved | passed | `reports/raw/PD_fresh_clone_pytest.txt` (39,007 bytes) |
-| Clean end-to-end demo for PaySim and IEEE passes with consumer reading only topics produced in same run | passed | `reports/raw/PD_e2e_demo.txt` (4,411 bytes) |
+| Fresh-clone full pytest run executed; raw output saved | partial: 19 passed / 6 failed | `reports/raw/PD_fresh_clone_pytest.txt` (39,007 bytes; see PDF follow-up where 6/6 passed isolated and 24/25 passed in new clone `PDF_pytest_full.txt`) |
+| Clean end-to-end demo for PaySim and IEEE passes with consumer reading only topics produced in same run | passed | `reports/raw/PD_e2e_demo.txt` (7,780 bytes) |
 | README complete and consistent with contracts | passed | `member3_streaming/README.md` |
 | `FINAL_SUMMARY.md` written; roadmap table filled; every claim has evidence pointer | passed | `member3_streaming/reports/FINAL_SUMMARY.md` |
 | Ledger consistent with reports | passed | `member3_streaming/PROGRESS.md` |
@@ -91,6 +91,9 @@ Cloning into 'C:\Users\akshi\AppData\Local\Temp\fresh_clone_phase_d_8yr_cyqj'...
 IMPORT TEST STDOUT:
 SUCCESS: Both consumer_paysim and consumer_ieee imported cleanly without missing dependencies!
 ```
+
+> [!NOTE]
+> Note: In earlier audit reports, the durations excerpt was retyped for summary readability, not verbatim; the raw log file (e.g. `reports/raw/PC_pytest_full.txt`, `reports/raw/PD_fresh_clone_pytest.txt`) is authoritative.
 
 ---
 

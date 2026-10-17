@@ -63,7 +63,8 @@ pytest member3_streaming/tests/ -v --durations=0
 ---
 
 ## 4. Test Evidence
-- **Automated Test Suite**: 25 passed in 859.53s (`reports/raw/PC_pytest_full.txt`).
+- **Automated Test Suite (Workspace)**: 25 passed in 859.53s (`reports/raw/PC_pytest_full.txt`).
+- **Fresh-Clone Test Suite**: Initial continuous run yielded 19 passed / 6 failed (`reports/raw/PD_fresh_clone_pytest.txt`). In Phase D follow-up (PDF), isolated reruns of the 6 failed tests in a fresh clone achieved 100% pass (6/6 passed, `reports/raw/PDF_rerun_*.txt`), and a full suite rerun in the fresh clone achieved 24 passed / 1 failed (`reports/raw/PDF_pytest_full.txt`).
 - **End-to-End Demo**: Clean run for PaySim (25 records, 42 cols) and IEEE (25 records, 483 cols) with downstream deduplication (`reports/raw/PD_e2e_demo.txt`).
 - **Checkpoint Crash Recovery**: PaySim (10 byte-identical duplicates) and IEEE (10 byte-identical duplicates) verified (`reports/PC_report.md`).
 - **Negative Controls**: Proven failure detection on corrupted feature values (`reports/raw/PC_negative_controls.txt`).
@@ -74,7 +75,7 @@ pytest member3_streaming/tests/ -v --durations=0
 ## 5. Known Limitations
 1. **Micro-Batch Barrier Reordering**: Events arriving within a single micro-batch are sorted ascending by timestamp/step inside the state function; intra-batch out-of-order events are reordered rather than rejected as `LATE_EVENT`.
 2. **Spark 4.1.1 Crash Recovery Replay NPE**: Hard kills mid-batch leave an uncommitted offset file triggering a `KafkaMicroBatchStream.metrics` NPE on unassisted restart; recovery requires the documented Operator Workaround rollback.
-3. **Sequential Test Suite Load on Windows**: Running all 25 streaming integration tests sequentially in rapid succession generates heavy OS socket churn on Windows, which can lead to temporary `BlockManagerMasterEndpoint` timeouts unless socket release cooldowns are observed.
+3. **Continuous Test Suite Load on Windows**: Running all 25 streaming integration tests sequentially in rapid succession generates heavy OS socket churn on Windows, which can lead to temporary `BlockManagerMasterEndpoint` timeouts unless socket release cooldowns are observed (verified in PDF where isolated single runs with cooldown passed 6/6 and full suite passed 24/25).
 4. **Member 4 Sink Status**: Integration interfaces and deduplicating downstream consumers are fully implemented and demonstrated in `member3_streaming/example_consumer_member4.py` and `HANDOFF_MEMBER4.md`. However, confirmation from the downstream modeling team regarding final production sinks remains **unanswered as of 2026-10-17**.
 
 ---

@@ -161,7 +161,7 @@ Malformed, invalid, or out-of-order events are routed to the respective DLQ topi
 
 1. **Micro-Batch Reordering**: Events arriving within a single micro-batch are sorted ascending by timestamp/step inside the state function, meaning intra-batch out-of-order events are absorbed and reordered, not rejected as `LATE_EVENT`.
 2. **Spark 4.1.1 Replay Crash**: Hard-killing a stateful consumer mid-batch leaves an uncommitted offset file that triggers a `KafkaMicroBatchStream.metrics` NPE on unassisted restart; recovery requires the documented Operator Workaround rollback.
-3. **Sequential Test Suite Load on Windows**: Running all 25 streaming tests sequentially in rapid succession creates high OS socket churn and ephemeral port exhaustion on Windows, which can cause PySpark JVM `BlockManagerMasterEndpoint` timeouts unless OS socket cooldown pauses are observed.
+3. **Continuous Test Suite Load on Windows**: Running all 25 streaming tests sequentially in rapid succession creates high OS socket churn and ephemeral port exhaustion on Windows, which can cause PySpark JVM `BlockManagerMasterEndpoint` timeouts unless OS socket cooldown pauses are observed (verified in fresh clone tests: 6/6 passed when run isolated with cooldown, and 24/25 passed in a full continuous suite run).
 4. **Member 4 Sink Status**: Member 4 integration is fully drafted with downstream deduplication examples (`example_consumer_member4.py`), but downstream team confirmation of final production sinks remains unanswered as of 2026-10-17.
 
 ---
