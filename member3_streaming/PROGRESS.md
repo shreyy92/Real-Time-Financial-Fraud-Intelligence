@@ -15,4 +15,4 @@
 | Phase A | passed | bef0148 | member3_streaming/reports/PA_report.md | 2026-10-17 |
 | 10 (Phase B) | passed | 02cd84d | member3_streaming/reports/PB_report.md | 2026-10-17 |
 | 11 (Phase C) | passed | 111ece4 | member3_streaming/reports/PC_report.md | 2026-10-17 |
-| 12 | pending | - | member3_streaming/reports/C12_report.md | 2026-10-13 |
+| 12 (Phase D) | passed | dc19f4d | member3_streaming/reports/PD_report.md | 2026-10-17 |
