@@ -15,5 +15,7 @@
 | Phase A | passed | bef0148 | member3_streaming/reports/PA_report.md | 2026-10-17 |
 | 10 (Phase B) | passed | 02cd84d | member3_streaming/reports/PB_report.md | 2026-10-17 |
 | 11 (Phase C) | passed | 111ece4 | member3_streaming/reports/PC_report.md | 2026-10-17 |
-| 12 (Phase D) | partial: fresh-clone pytest 24/25 | dc19f4d | member3_streaming/reports/PD_report.md | 2026-10-17 |
+| 12 (Phase D) | partial: streaming tests flaky on Windows, see README | dc19f4d | member3_streaming/reports/PD_report.md | 2026-10-17 |
 | PDF | passed (isolated 6/6; full suite 24/25) | fda3739 | member3_streaming/reports/PDF_report.md | 2026-10-17 |
+| PDG | passed (restart-twice recovers; streaming tests flaky on Windows, see README) | ed99dde | member3_streaming/reports/PDG_report.md | 2026-10-17 |
+
