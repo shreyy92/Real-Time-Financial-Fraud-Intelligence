@@ -14,5 +14,5 @@
 | 9 | parity passed; crash recovery requires operator rollback | 0fd7f94 | member3_streaming/reports/C09_report.md | 2026-10-16 |
 | Phase A | passed | bef0148 | member3_streaming/reports/PA_report.md | 2026-10-17 |
 | 10 (Phase B) | passed | 02cd84d | member3_streaming/reports/PB_report.md | 2026-10-17 |
-| 11 | pending | - | member3_streaming/reports/C11_report.md | 2026-10-13 |
+| 11 (Phase C) | passed | 111ece4 | member3_streaming/reports/PC_report.md | 2026-10-17 |
 | 12 | pending | - | member3_streaming/reports/C12_report.md | 2026-10-13 |
