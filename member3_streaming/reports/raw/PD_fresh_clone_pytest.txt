@@ -1,0 +1,748 @@
+=====================================================================
+PHASE D: FRESH-CLONE VERIFICATION ON BRANCH member3-streaming
+=====================================================================
+Cloning https://github.com/shreyy92/Real-Time-Financial-Fraud-Intelligence.git (branch: member3-streaming) to C:\Users\akshi\AppData\Local\Temp\fresh_clone_phase_d_8yr_cyqj...
+GIT CLONE STDOUT:
+
+GIT CLONE STDERR:
+Cloning into 'C:\Users\akshi\AppData\Local\Temp\fresh_clone_phase_d_8yr_cyqj'...
+
+
+--- Task 1: Fresh-Clone Clean Import Check ---
+IMPORT TEST STDOUT:
+SUCCESS: Both consumer_paysim and consumer_ieee imported cleanly without missing dependencies!
+
+IMPORT TEST STDERR:
+
+
+--- Task 2: Fresh-Clone Full Pytest Suite Run (25 tests) ---
+Linking project dataset from E:\vs code\projects\data-science\Real-Time-Financial-Fraud-Intelligence\data to C:\Users\akshi\AppData\Local\Temp\fresh_clone_phase_d_8yr_cyqj\data...
+Running command: C:\Users\akshi\AppData\Local\Programs\Python\Python312\python.exe -m pytest -v --durations=0 member3_streaming/tests in C:\Users\akshi\AppData\Local\Temp\fresh_clone_phase_d_8yr_cyqj...
+============================= test session starts =============================
+platform win32 -- Python 3.12.6, pytest-9.0.2, pluggy-1.6.0 -- C:\Users\akshi\AppData\Local\Programs\Python\Python312\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\akshi\AppData\Local\Temp\fresh_clone_phase_d_8yr_cyqj
+configfile: pytest.ini
+plugins: anyio-4.12.0, langsmith-0.3.45
+collecting ... collected 25 items
+
+member3_streaming/tests/test_contract.py::test_contract_columns_match_paysim_output_schema PASSED [  4%]
+member3_streaming/tests/test_contract.py::test_contract_dlq_codes_match_code_constants PASSED [  8%]
+member3_streaming/tests/test_contract.py::test_contract_tier_b_rationale PASSED [ 12%]
+member3_streaming/tests/test_contract.py::test_dlq_record_schema_fields PASSED [ 16%]
+member3_streaming/tests/test_fast_unit.py::test_kafka_connectivity PASSED [ 20%]
+member3_streaming/tests/test_fast_unit.py::test_schema_parsing_valid_and_malformed PASSED [ 24%]
+member3_streaming/tests/test_fast_unit.py::test_all_dlq_reason_codes_unit PASSED [ 28%]
+member3_streaming/tests/test_fast_unit.py::test_negative_control_parity_failure PASSED [ 32%]
+member3_streaming/tests/test_ieee_contract.py::test_ieee_contract_columns_match_spark_schema_and_parquet PASSED [ 36%]
+member3_streaming/tests/test_ieee_contract.py::test_ieee_contract_dlq_codes_match_code_constants PASSED [ 40%]
+member3_streaming/tests/test_ieee_contract.py::test_ieee_dlq_record_schema_fields PASSED [ 44%]
+member3_streaming/tests/test_ieee_streaming.py::test_ieee_parity_negative_control PASSED [ 48%]
+member3_streaming/tests/test_ieee_streaming.py::test_ieee_stateless_parity_small PASSED [ 52%]
+member3_streaming/tests/test_ieee_streaming.py::test_ieee_stateful_tie_boundary_oracle FAILED [ 56%]
+member3_streaming/tests/test_ieee_streaming.py::test_ieee_stateful_long_span_parity PASSED [ 60%]
+member3_streaming/tests/test_ieee_streaming.py::test_ieee_late_event_routing FAILED [ 64%]
+member3_streaming/tests/test_ieee_streaming.py::test_ieee_all_dlq_codes PASSED [ 68%]
+member3_streaming/tests/test_ieee_streaming.py::test_ieee_checkpoint_recovery FAILED [ 72%]
+member3_streaming/tests/test_real_streaming.py::test_real_streaming_parity PASSED [ 76%]
+member3_streaming/tests/test_real_streaming.py::test_real_streaming_all_dlq_codes PASSED [ 80%]
+member3_streaming/tests/test_real_streaming.py::test_real_streaming_late_event_routing FAILED [ 84%]
+member3_streaming/tests/test_real_streaming.py::test_real_streaming_late_event_pending PASSED [ 88%]
+member3_streaming/tests/test_real_streaming.py::test_real_checkpoint_recovery FAILED [ 92%]
+member3_streaming/tests/test_real_streaming.py::test_real_checkpoint_plain_restart_failure PASSED [ 96%]
+member3_streaming/tests/test_real_streaming.py::test_real_streaming_long_span_parity FAILED [100%]
+
+================================== FAILURES ===================================
+___________________ test_ieee_stateful_tie_boundary_oracle ____________________
+
+    @pytest.mark.slow
+    def test_ieee_stateful_tie_boundary_oracle():
+        """Verify stateful features on synthetic tie and window boundary events (t-W, t-W-1, t-1, t).
+
+        Starts real PySpark query: yes (stateful consumer_ieee.py).
+        Reads leftover data: no (ephemeral topics, isolated checkpoint).
+        """
+        uid = uuid.uuid4().hex[:6]
+        in_topic = f"in_oracle_{uid}"
+        out_topic = f"out_oracle_{uid}"
+        dlq_topic = f"dlq_oracle_{uid}"
+        chk_dir = os.path.abspath(f"member3_streaming/checkpoints/chk_oracle_{uid}")
+        log_file = os.path.abspath(f"member3_streaming/scratch_oracle_{uid}.log")
+
+        admin = KafkaAdminClient(bootstrap_servers=[BROKER], request_timeout_ms=5000)
+        admin.create_topics([
+            NewTopic(name=in_topic, num_partitions=1, replication_factor=1),
+            NewTopic(name=out_topic, num_partitions=1, replication_factor=1),
+            NewTopic(name=dlq_topic, num_partitions=1, replication_factor=1),
+        ])
+
+        proc = None
+        try:
+            T = 1000000
+            all_raw_fields = [f.name for f in IEEE_RAW_SCHEMA.fields]
+            base_card = {
+                "card1": 12345, "card2": 500.0, "card3": 150.0, "card4": "visa",
+                "card5": 226.0, "card6": "debit", "ProductCD": "W", "isFraud": 0,
+            }
+
+            test_specs = [
+                (100000, 1001, 50.0),
+                (100000, 1002, 75.0),
+                (100000, 1003, 100.0),
+                (T - 604800 - 1, 1004, 60.0),
+                (T - 604800, 1005, 70.0),
+                (T - 86400 - 1, 1006, 80.0),
+                (T - 86400, 1007, 90.0),
+                (T - 3600 - 1, 1008, 110.0),
+                (T - 3600, 1009, 120.0),
+                (T - 1, 1010, 130.0),
+                (T, 1011, 150.0),
+            ]
+
+            producer = KafkaProducer(
+                bootstrap_servers=[BROKER],
+                key_serializer=lambda k: str(k).encode("utf-8") if k is not None else None,
+                value_serializer=json_serializer,
+            )
+            for dt, tid, amt in test_specs:
+                row = {f: None for f in all_raw_fields}
+                row.update(base_card)
+                row["TransactionID"] = int(tid)
+                row["TransactionDT"] = int(dt)
+                row["TransactionAmt"] = float(amt)
+                producer.send(in_topic, key="12345", value=sanitize_record(row))
+            producer.flush()
+            producer.close()
+
+            cmd = [
+                sys.executable, "-m", "member3_streaming.consumer_ieee",
+                "--bootstrap-servers", BROKER,
+                "--input-topic", in_topic,
+                "--output-topic", out_topic,
+                "--dlq-topic", dlq_topic,
+                "--checkpoint-location", chk_dir,
+            ]
+            with open(log_file, "w") as f:
+                proc = subprocess.Popen(cmd, stdout=f, stderr=subprocess.STDOUT)
+
+            consumer = KafkaConsumer(bootstrap_servers=[BROKER], auto_offset_reset="earliest", consumer_timeout_ms=1000)
+            consumer.assign([TopicPartition(out_topic, 0)])
+
+            records = {}
+            t0 = time.time()
+            while len(records) < len(test_specs) and (time.time() - t0) < 150:
+                rec_map = consumer.poll(timeout_ms=1000)
+                if rec_map:
+                    for tp, msgs in rec_map.items():
+                        for msg in msgs:
+                            val = json.loads(msg.value.decode("utf-8"))
+                            records[val["TransactionID"]] = val
+                time.sleep(0.5)
+            consumer.close()
+
+>           assert len(records) == len(test_specs), f"Expected {len(test_specs)} records, got {len(records)}"
+E           AssertionError: Expected 11 records, got 0
+E           assert 0 == 11
+E            +  where 0 = len({})
+E            +  and   11 = len([(100000, 1001, 50.0), (100000, 1002, 75.0), (100000, 1003, 100.0), (395199, 1004, 60.0), (395200, 1005, 70.0), (913599, 1006, 80.0), ...])
+
+member3_streaming\tests\test_ieee_streaming.py:325: AssertionError
+------------------------------ Captured log call ------------------------------
+WARNING  kafka.coordinator.consumer:consumer.py:105 group_id is None: disabling auto-commit.
+________________________ test_ieee_late_event_routing _________________________
+
+    @pytest.mark.slow
+    def test_ieee_late_event_routing():
+        """Verify IEEE LATE_EVENT routing and negative control for forward events.
+
+        Starts real PySpark query: yes (consumer_ieee.py).
+        Reads leftover data: no (ephemeral topics, isolated checkpoint).
+        """
+        uid = uuid.uuid4().hex[:6]
+        in_topic = f"in_late_{uid}"
+        out_topic = f"out_late_{uid}"
+        dlq_topic = f"dlq_late_{uid}"
+        chk_dir = os.path.abspath(f"member3_streaming/checkpoints/chk_late_{uid}")
+        log_file = os.path.abspath(f"member3_streaming/scratch_late_{uid}.log")
+
+        admin = KafkaAdminClient(bootstrap_servers=[BROKER], request_timeout_ms=5000)
+        admin.create_topics([
+            NewTopic(name=in_topic, num_partitions=1, replication_factor=1),
+            NewTopic(name=out_topic, num_partitions=1, replication_factor=1),
+            NewTopic(name=dlq_topic, num_partitions=1, replication_factor=1),
+        ])
+
+        clean_path = CLEAN_PARQUET
+        table = pq.read_table(clean_path)
+        sample_dict = {col: table[col][0].as_py() for col in table.column_names}
+        sample_dict["card1"] = 10001
+        sample_dict["card2"] = 111.0
+        sample_dict["card3"] = 150.0
+        sample_dict["card4"] = "visa"
+        sample_dict["card5"] = 226.0
+        sample_dict["card6"] = "debit"
+        sample_dict["ProductCD"] = "W"
+        sample_dict["isFraud"] = 0
+        sample_dict["TransactionAmt"] = 100.0
+
+        def make_event(dt, tid, amt=100.0):
+            rec = dict(sample_dict)
+            rec["TransactionDT"] = dt
+            rec["TransactionID"] = tid
+            rec["TransactionAmt"] = amt
+            return rec
+
+        producer = KafkaProducer(
+            bootstrap_servers=[BROKER],
+            value_serializer=lambda v: json.dumps(v).encode("utf-8"),
+            key_serializer=lambda k: str(k).encode("utf-8"),
+        )
+
+        proc = None
+        try:
+            env = os.environ.copy()
+            env["IEEE_DLQ_TOPIC"] = dlq_topic
+            env["KAFKA_BOOTSTRAP_SERVERS"] = BROKER
+
+            cmd = [
+                sys.executable, "-u", "-m", "member3_streaming.consumer_ieee",
+                "--bootstrap-servers", BROKER,
+                "--input-topic", in_topic,
+                "--output-topic", out_topic,
+                "--dlq-topic", dlq_topic,
+                "--checkpoint-location", chk_dir,
+                "--max-offsets-per-trigger", "10",
+            ]
+            with open(log_file, "w") as f:
+                proc = subprocess.Popen(cmd, stdout=f, stderr=subprocess.STDOUT, env=env)
+
+            # 1. Send seed event DT=1000, TID=5
+            e1 = make_event(dt=1000, tid=5, amt=100.0)
+            producer.send(in_topic, key="10001", value=e1)
+            producer.flush()
+
+            # Wait until output topic receives TID=5
+            consumer_out = KafkaConsumer(bootstrap_servers=[BROKER], auto_offset_reset="earliest", consumer_timeout_ms=1000)
+            consumer_out.assign([TopicPartition(out_topic, 0)])
+
+            out_seen = {}
+            t0 = time.time()
+            while 5 not in out_seen and (time.time() - t0) < 150:
+                rec_map = consumer_out.poll(timeout_ms=1000)
+                if rec_map:
+                    for tp, msgs in rec_map.items():
+                        for msg in msgs:
+                            val = json.loads(msg.value.decode("utf-8"))
+                            out_seen[val["TransactionID"]] = val
+                time.sleep(0.5)
+
+>           assert 5 in out_seen, "Seed transaction TID=5 was not processed into output topic"
+E           AssertionError: Seed transaction TID=5 was not processed into output topic
+E           assert 5 in {}
+
+member3_streaming\tests\test_ieee_streaming.py:552: AssertionError
+------------------------------ Captured log call ------------------------------
+WARNING  kafka.coordinator.consumer:consumer.py:105 group_id is None: disabling auto-commit.
+________________________ test_ieee_checkpoint_recovery ________________________
+
+    @pytest.mark.slow
+    def test_ieee_checkpoint_recovery():
+        """Verify IEEE state continuity recovery after an abrupt mid-batch crash using operator rollback.
+
+        Starts real PySpark query: yes (consumer_ieee.py).
+        Reads leftover data: no (ephemeral topics, isolated checkpoint).
+        """
+        uid = uuid.uuid4().hex[:6]
+        in_topic = f"in_recov_{uid}"
+        out_topic = f"out_recov_{uid}"
+        dlq_topic = f"dlq_recov_{uid}"
+        chk_dir = os.path.abspath(f"member3_streaming/checkpoints/chk_recov_{uid}")
+        log1 = os.path.abspath(f"member3_streaming/scratch_recov1_{uid}.log")
+        log2 = os.path.abspath(f"member3_streaming/scratch_recov2_{uid}.log")
+
+        admin = KafkaAdminClient(bootstrap_servers=[BROKER], request_timeout_ms=5000)
+        admin.create_topics([
+            NewTopic(name=in_topic, num_partitions=1, replication_factor=1),
+            NewTopic(name=out_topic, num_partitions=1, replication_factor=1),
+            NewTopic(name=dlq_topic, num_partitions=1, replication_factor=1),
+        ])
+
+        proc1 = None
+        proc2 = None
+        try:
+            # Load 40 rows: 20 batch 1, 20 batch 2
+            df_clean = pd.read_parquet(CLEAN_PARQUET).sort_values(
+                by=["TransactionDT", "TransactionID"], ascending=[True, True], kind="stable"
+            ).head(40)
+
+            df1 = df_clean.iloc[:10]
+            df2 = df_clean.iloc[10:40]
+
+            producer = KafkaProducer(
+                bootstrap_servers=[BROKER],
+                key_serializer=lambda k: str(k).encode("utf-8") if k is not None else None,
+                value_serializer=json_serializer,
+            )
+            for rec in df1.to_dict(orient="records"):
+                msg = sanitize_record(rec)
+                producer.send(in_topic, key=str(msg["card1"]), value=msg)
+            producer.flush()
+
+            cmd = [
+                sys.executable, "-m", "member3_streaming.consumer_ieee",
+                "--bootstrap-servers", BROKER,
+                "--input-topic", in_topic,
+                "--output-topic", out_topic,
+                "--dlq-topic", dlq_topic,
+                "--checkpoint-location", chk_dir,
+                "--max-offsets-per-trigger", "10",
+            ]
+            with open(log1, "w") as f:
+                proc1 = subprocess.Popen(cmd, stdout=f, stderr=subprocess.STDOUT)
+
+            # Wait until first micro-batch commits
+            feat_commits = os.path.join(chk_dir, "features", "commits")
+            t0 = time.time()
+            committed = False
+            while (time.time() - t0) < 150:
+                if os.path.exists(feat_commits) and len([f for f in os.listdir(feat_commits) if f.isdigit()]) > 0:
+                    committed = True
+                    break
+                time.sleep(0.5)
+            if not committed:
+                _kill_process(proc1)
+                time.sleep(10)
+                with open(log1, "w") as f:
+                    proc1 = subprocess.Popen(cmd, stdout=f, stderr=subprocess.STDOUT)
+                t0 = time.time()
+                while (time.time() - t0) < 150:
+                    if os.path.exists(feat_commits) and len([f for f in os.listdir(feat_commits) if f.isdigit()]) > 0:
+                        committed = True
+                        break
+                    time.sleep(0.5)
+            assert committed, "Consumer 1 did not commit initial micro-batch within 150s"
+
+            pre_consumer = KafkaConsumer(
+                bootstrap_servers=[BROKER],
+                auto_offset_reset="earliest",
+                consumer_timeout_ms=1000,
+            )
+            pre_consumer.assign([TopicPartition(out_topic, 0)])
+
+            for rec in df2.to_dict(orient="records"):
+                msg = sanitize_record(rec)
+                producer.send(in_topic, key=str(msg["card1"]), value=msg)
+            producer.flush()
+            producer.close()
+
+            pre_crash_records = []
+            t0 = time.time()
+            while len(pre_crash_records) < 15 and (time.time() - t0) < 60:
+                rec_map = pre_consumer.poll(timeout_ms=500)
+                if rec_map:
+                    for tp, msgs in rec_map.items():
+                        for msg in msgs:
+                            pre_crash_records.append(json.loads(msg.value.decode("utf-8")))
+                if len(pre_crash_records) >= 14 and (len(pre_crash_records) % 10) != 0:
+                    break
+                time.sleep(0.2)
+            pre_consumer.close()
+
+            # Hard-kill mid-batch
+            _kill_process(proc1)
+            proc1 = None
+            time.sleep(5)
+
+            pre_count = len(pre_crash_records)
+            is_mid_batch = (pre_count % 10) != 0
+            print(f"\n[IEEE OPERATOR ROLLBACK CRASH TEST] Pre-kill records: {pre_count}, remainder mod 10: {pre_count % 10}")
+
+            # Roll back uncommitted orphan offset for both features and dlq (Spark 4.1.1 workaround)
+            for subchk in ["features", "dlq"]:
+                sub_chk_dir = os.path.join(chk_dir, subchk)
+                offsets_dir = os.path.join(sub_chk_dir, "offsets")
+                commits_dir = os.path.join(sub_chk_dir, "commits")
+                if os.path.exists(offsets_dir) and os.path.exists(commits_dir):
+                    offsets = sorted([int(f) for f in os.listdir(offsets_dir) if f.isdigit()])
+                    commits = sorted([int(f) for f in os.listdir(commits_dir) if f.isdigit()])
+                    if offsets and (not commits or offsets[-1] > commits[-1]):
+                        orphan = os.path.join(offsets_dir, str(offsets[-1]))
+                        orphan_crc = os.path.join(offsets_dir, f".{offsets[-1]}.crc")
+                        try:
+                            os.remove(orphan)
+                        except Exception:
+                            pass
+                        try:
+                            os.remove(orphan_crc)
+                        except Exception:
+                            pass
+
+            # Restart Consumer 2 with same checkpoint
+            with open(log2, "w") as f:
+                proc2 = subprocess.Popen(cmd, stdout=f, stderr=subprocess.STDOUT)
+
+            consumer = KafkaConsumer(
+                bootstrap_servers=[BROKER],
+                auto_offset_reset="earliest",
+                consumer_timeout_ms=1000,
+            )
+            consumer.assign([TopicPartition(out_topic, 0)])
+            consumer.seek_to_beginning()
+
+            all_records = []
+            distinct_txns = set()
+            t0 = time.time()
+            empty_polls = 0
+            while (time.time() - t0) < 180:
+                if proc2.poll() is not None:
+                    with open(log2, "r") as lf:
+                        print(f"\n[CONSUMER 2 EXITED EARLY]:\n" + lf.read())
+                    break
+                rec_map = consumer.poll(timeout_ms=1000)
+                if rec_map:
+                    empty_polls = 0
+                    for tp, msgs in rec_map.items():
+                        for msg in msgs:
+                            val = json.loads(msg.value.decode("utf-8"))
+                            all_records.append(val)
+                            distinct_txns.add(val["TransactionID"])
+                else:
+                    if len(distinct_txns) >= 40:
+                        empty_polls += 1
+                        if empty_polls >= 4:
+                            break
+                time.sleep(0.5)
+            consumer.close()
+
+>           assert len(distinct_txns) == 40, f"Expected 40 distinct transactions, got {len(distinct_txns)}"
+E           AssertionError: Expected 40 distinct transactions, got 15
+E           assert 15 == 40
+E            +  where 15 = len({2987000, 2987001, 2987002, 2987003, 2987004, 2987005, ...})
+
+member3_streaming\tests\test_ieee_streaming.py:870: AssertionError
+---------------------------- Captured stdout call -----------------------------
+
+[IEEE OPERATOR ROLLBACK CRASH TEST] Pre-kill records: 15, remainder mod 10: 5
+------------------------------ Captured log call ------------------------------
+WARNING  kafka.coordinator.consumer:consumer.py:105 group_id is None: disabling auto-commit.
+WARNING  kafka.coordinator.consumer:consumer.py:105 group_id is None: disabling auto-commit.
+ERROR    kafka.cluster:cluster.py:591 Topic out_late_d5a49f not found in cluster metadata
+___________________ test_real_streaming_late_event_routing ____________________
+
+    @pytest.mark.slow
+    def test_real_streaming_late_event_routing():
+        """Verify that an out-of-order event arriving behind committed step is routed to DLQ as LATE_EVENT.
+
+        Starts its OWN Spark Structured Streaming consumer on freshly created unique topics.
+        Sends step 5 event, waits for commitment, then sends step 3 event and validates DLQ routing.
+        """
+        uid = uuid.uuid4().hex[:6]
+        in_topic = f"test_late_in_{uid}"
+        out_topic = f"test_late_out_{uid}"
+        dlq_topic = f"test_late_dlq_{uid}"
+        chk_dir = os.path.abspath(f"member3_streaming/checkpoints/test_chk_late_{uid}")
+        log_path = os.path.abspath(f"member3_streaming/scratch_late_{uid}.log")
+
+        admin = KafkaAdminClient(bootstrap_servers=[BROKER], request_timeout_ms=5000)
+        admin.create_topics([
+            NewTopic(name=in_topic, num_partitions=1, replication_factor=1),
+            NewTopic(name=out_topic, num_partitions=1, replication_factor=1),
+            NewTopic(name=dlq_topic, num_partitions=1, replication_factor=1),
+        ])
+
+        proc = None
+        try:
+            # Launch Spark Structured Streaming consumer
+            cmd = [
+                sys.executable, "-m", "member3_streaming.consumer_paysim",
+                "--bootstrap-servers", BROKER,
+                "--input-topic", in_topic,
+                "--output-topic", out_topic,
+                "--dlq-topic", dlq_topic,
+                "--checkpoint-location", chk_dir,
+                "--max-offsets-per-trigger", "1",
+            ]
+            with open(log_path, "w") as log_file:
+                proc = subprocess.Popen(cmd, stdout=log_file, stderr=subprocess.STDOUT)
+
+            producer = KafkaProducer(
+                bootstrap_servers=[BROKER],
+                value_serializer=lambda v: json.dumps(v).encode("utf-8")
+            )
+
+            dest_key = f"M_LATE_{uid}"
+            msg1 = {
+                "step": 5, "type": "TRANSFER", "amount": 1000.0,
+                "nameOrig": f"C_ORIG1_{uid}", "oldbalanceOrg": 5000.0, "newbalanceOrig": 4000.0,
+                "nameDest": dest_key, "oldbalanceDest": 0.0, "newbalanceDest": 0.0,
+                "isFraud": 0, "isFlaggedFraud": 0
+            }
+            producer.send(in_topic, value=msg1)
+            producer.flush()
+
+            # Wait for msg1 in output topic
+            consumer_out = KafkaConsumer(
+                bootstrap_servers=[BROKER],
+                auto_offset_reset="earliest",
+                consumer_timeout_ms=1000,
+            )
+            consumer_out.assign([TopicPartition(out_topic, 0)])
+
+            found_out = False
+            t0 = time.time()
+            while (time.time() - t0) < 180:
+                rec_map = consumer_out.poll(timeout_ms=1000)
+                if rec_map:
+                    for tp, msgs in rec_map.items():
+                        if msgs:
+                            found_out = True
+                            break
+                    if found_out:
+                        break
+                time.sleep(0.5)
+            consumer_out.close()
+>           assert found_out, "Initial step 5 message was not processed into output topic"
+E           AssertionError: Initial step 5 message was not processed into output topic
+E           assert False
+
+member3_streaming\tests\test_real_streaming.py:369: AssertionError
+------------------------------ Captured log call ------------------------------
+WARNING  kafka.coordinator.consumer:consumer.py:105 group_id is None: disabling auto-commit.
+________________________ test_real_checkpoint_recovery ________________________
+
+    @pytest.mark.slow
+    def test_real_checkpoint_recovery():
+        """Verify crash recovery: hard-kills an active Spark consumer mid-stream and restarts it.
+
+        Arithmetic Explanation:
+        - Input dataset consists of exactly 40 UNIQUE transactions:
+          - Batch A: 20 transactions from step 1 (df1: slice 0..20)
+          - Batch B: 20 transactions from step 2 (df2: slice 0..20)
+          Total unique transactions = 20 + 20 = 40.
+        - With maxOffsetsPerTrigger=10, the stream processes across 10-row micro-batches.
+        - Consumer 1 is hard-killed mid-stream.
+        - Consumer 2 restarts from the same checkpoint and processes all remaining records.
+        - Output assertions:
+          1. All 40 unique transactions are received (distinct txn_id == 40).
+          2. Duplicate records across the crash boundary are byte-identical.
+        """
+        uid = uuid.uuid4().hex[:6]
+        in_topic = f"test_recov_in_{uid}"
+        out_topic = f"test_recov_out_{uid}"
+        dlq_topic = f"test_recov_dlq_{uid}"
+        chk_dir = os.path.abspath(f"member3_streaming/checkpoints/test_chk_recov_{uid}")
+        log1 = os.path.abspath(f"member3_streaming/scratch_recov1_{uid}.log")
+        log2 = os.path.abspath(f"member3_streaming/scratch_recov2_{uid}.log")
+
+        admin = KafkaAdminClient(bootstrap_servers=[BROKER], request_timeout_ms=5000)
+        admin.create_topics([
+            NewTopic(name=in_topic, num_partitions=1, replication_factor=1),
+            NewTopic(name=out_topic, num_partitions=1, replication_factor=1),
+            NewTopic(name=dlq_topic, num_partitions=1, replication_factor=1),
+        ])
+
+        proc1 = None
+        proc2 = None
+        try:
+            # Load exactly 40 unique transactions: 10 step 1 (batch 0) + 30 step 2 (batches 1, 2, 3)
+            table1 = pq.read_table(PARQUET_PATH, filters=[("step", "==", 1)])
+            df1 = table1.slice(0, 10).to_pandas()
+            table2 = pq.read_table(PARQUET_PATH, filters=[("step", "==", 2)])
+            df2 = table2.slice(0, 30).to_pandas()
+            raw_cols = [
+                "step", "type", "amount", "nameOrig", "oldbalanceOrg",
+                "newbalanceOrig", "nameDest", "oldbalanceDest", "newbalanceDest", "isFraud"
+            ]
+
+            producer = KafkaProducer(
+                bootstrap_servers=[BROKER],
+                value_serializer=lambda v: json.dumps(v).encode("utf-8")
+            )
+            for _, row in df1[raw_cols].iterrows():
+                producer.send(in_topic, value=row.to_dict())
+            producer.flush()
+
+            cmd = [
+                sys.executable, "-m", "member3_streaming.consumer_paysim",
+                "--bootstrap-servers", BROKER,
+                "--input-topic", in_topic,
+                "--output-topic", out_topic,
+                "--dlq-topic", dlq_topic,
+                "--checkpoint-location", chk_dir,
+                "--max-offsets-per-trigger", "10",
+            ]
+            with open(log1, "w") as f:
+                proc1 = subprocess.Popen(cmd, stdout=f, stderr=subprocess.STDOUT)
+
+            # Wait until first micro-batch commits
+            feat_commits = os.path.join(chk_dir, "features", "commits")
+            t0 = time.time()
+            committed = False
+            while (time.time() - t0) < 90:
+                if os.path.exists(feat_commits) and len([f for f in os.listdir(feat_commits) if f.isdigit()]) > 0:
+                    committed = True
+                    break
+                time.sleep(0.5)
+>           assert committed, "Consumer 1 did not commit initial micro-batch within 90s"
+E           AssertionError: Consumer 1 did not commit initial micro-batch within 90s
+E           assert False
+
+member3_streaming\tests\test_real_streaming.py:654: AssertionError
+____________________ test_real_streaming_long_span_parity _____________________
+
+    @pytest.mark.slow
+    def test_real_streaming_long_span_parity():
+        """Verify stateful streaming parity on 20 long-span destination keys.
+
+        Exercises 24-hour and 168-hour trailing window eviction where
+        `dest_txn_count_prev_24h` or `dest_txn_count_prev_168h` differs from `dest_prior_txn_count`.
+        Asserts 0 mismatches across all 13 stateful columns against batch ground truth at tolerance 1e-6.
+        """
+        uid = uuid.uuid4().hex[:6]
+        in_topic = f"test_span_in_{uid}"
+        out_topic = f"test_span_out_{uid}"
+        dlq_topic = f"test_span_dlq_{uid}"
+        chk_dir = os.path.abspath(f"member3_streaming/checkpoints/test_chk_span_{uid}")
+        log_path = os.path.abspath(f"member3_streaming/scratch_span_{uid}.log")
+
+        admin = KafkaAdminClient(bootstrap_servers=[BROKER], request_timeout_ms=5000)
+        admin.create_topics([
+            NewTopic(name=in_topic, num_partitions=1, replication_factor=1),
+            NewTopic(name=out_topic, num_partitions=1, replication_factor=1),
+            NewTopic(name=dlq_topic, num_partitions=1, replication_factor=1),
+        ])
+
+        proc = None
+        try:
+            # Identify 20 keys with window eviction from parquet
+            pq_table = pq.read_table(
+                PARQUET_PATH,
+                columns=["nameDest", "step", "dest_prior_txn_count", "dest_txn_count_prev_24h", "dest_txn_count_prev_168h"]
+            )
+            df_meta = pq_table.to_pandas()
+            evicted_keys = df_meta[df_meta["dest_txn_count_prev_24h"] < df_meta["dest_prior_txn_count"]]["nameDest"].unique()
+            selected_keys = list(evicted_keys[:20])
+
+            # Read full rows for these 20 keys
+            full_table = pq.read_table(PARQUET_PATH, filters=[("nameDest", "in", selected_keys)])
+            df_span = full_table.to_pandas().sort_values(by=["step", "nameDest"], ascending=[True, True])
+            n_rows = len(df_span)
+            assert n_rows > 0, "No rows found for selected long-span keys"
+
+            raw_cols = [
+                "step", "type", "amount", "nameOrig", "oldbalanceOrg",
+                "newbalanceOrig", "nameDest", "oldbalanceDest", "newbalanceDest", "isFraud"
+            ]
+
+            producer = KafkaProducer(
+                bootstrap_servers=[BROKER],
+                value_serializer=lambda v: json.dumps(v).encode("utf-8")
+            )
+            for _, row in df_span[raw_cols].iterrows():
+                producer.send(in_topic, value=row.to_dict())
+            producer.flush()
+            producer.close()
+
+            # Launch consumer
+            cmd = [
+                sys.executable, "-m", "member3_streaming.consumer_paysim",
+                "--bootstrap-servers", BROKER,
+                "--input-topic", in_topic,
+                "--output-topic", out_topic,
+                "--dlq-topic", dlq_topic,
+                "--checkpoint-location", chk_dir,
+            ]
+            with open(log_path, "w") as log_file:
+                proc = subprocess.Popen(cmd, stdout=log_file, stderr=subprocess.STDOUT)
+
+            # Collect output
+            consumer = KafkaConsumer(
+                bootstrap_servers=[BROKER],
+                auto_offset_reset="earliest",
+                consumer_timeout_ms=1000,
+            )
+            consumer.assign([TopicPartition(out_topic, 0)])
+
+            out_records = {}
+            t0 = time.time()
+            while len(out_records) < n_rows and (time.time() - t0) < 240:
+                if proc.poll() is not None:
+                    with open(log_path, "r") as lf:
+                        print("\n[LONG SPAN CONSUMER EXITED EARLY]:\n" + lf.read()[-3000:])
+                    break
+                rec_map = consumer.poll(timeout_ms=1000)
+                if rec_map:
+                    for tp, msgs in rec_map.items():
+                        for msg in msgs:
+                            val = json.loads(msg.value.decode("utf-8"))
+                            out_records[val["txn_id"]] = val
+                if len(out_records) >= n_rows:
+                    break
+                time.sleep(0.5)
+            consumer.close()
+
+>           assert len(out_records) == n_rows, f"Expected {n_rows} long-span output records, got {len(out_records)}"
+E           AssertionError: Expected 306 long-span output records, got 0
+E           assert 0 == 306
+E            +  where 0 = len({})
+
+member3_streaming\tests\test_real_streaming.py:1047: AssertionError
+------------------------------ Captured log call ------------------------------
+WARNING  kafka.coordinator.consumer:consumer.py:105 group_id is None: disabling auto-commit.
+============================== slowest durations ==============================
+260.04s call     member3_streaming/tests/test_ieee_streaming.py::test_ieee_checkpoint_recovery
+253.90s call     member3_streaming/tests/test_real_streaming.py::test_real_streaming_long_span_parity
+191.91s call     member3_streaming/tests/test_real_streaming.py::test_real_streaming_late_event_routing
+159.66s call     member3_streaming/tests/test_ieee_streaming.py::test_ieee_late_event_routing
+159.16s call     member3_streaming/tests/test_ieee_streaming.py::test_ieee_stateful_tie_boundary_oracle
+102.76s call     member3_streaming/tests/test_real_streaming.py::test_real_checkpoint_recovery
+89.44s call     member3_streaming/tests/test_real_streaming.py::test_real_checkpoint_plain_restart_failure
+65.96s call     member3_streaming/tests/test_real_streaming.py::test_real_streaming_late_event_pending
+46.80s call     member3_streaming/tests/test_ieee_streaming.py::test_ieee_stateful_long_span_parity
+46.31s call     member3_streaming/tests/test_ieee_streaming.py::test_ieee_stateless_parity_small
+46.09s call     member3_streaming/tests/test_real_streaming.py::test_real_streaming_all_dlq_codes
+38.25s call     member3_streaming/tests/test_real_streaming.py::test_real_streaming_parity
+30.68s call     member3_streaming/tests/test_ieee_streaming.py::test_ieee_all_dlq_codes
+3.01s teardown member3_streaming/tests/test_real_streaming.py::test_real_streaming_long_span_parity
+3.00s teardown member3_streaming/tests/test_ieee_contract.py::test_ieee_contract_dlq_codes_match_code_constants
+3.00s teardown member3_streaming/tests/test_ieee_contract.py::test_ieee_dlq_record_schema_fields
+3.00s teardown member3_streaming/tests/test_contract.py::test_dlq_record_schema_fields
+3.00s teardown member3_streaming/tests/test_fast_unit.py::test_schema_parsing_valid_and_malformed
+3.00s teardown member3_streaming/tests/test_ieee_contract.py::test_ieee_contract_columns_match_spark_schema_and_parquet
+3.00s teardown member3_streaming/tests/test_ieee_streaming.py::test_ieee_stateful_tie_boundary_oracle
+3.00s teardown member3_streaming/tests/test_fast_unit.py::test_negative_control_parity_failure
+3.00s teardown member3_streaming/tests/test_ieee_streaming.py::test_ieee_parity_negative_control
+3.00s teardown member3_streaming/tests/test_ieee_streaming.py::test_ieee_stateless_parity_small
+3.00s teardown member3_streaming/tests/test_contract.py::test_contract_dlq_codes_match_code_constants
+3.00s teardown member3_streaming/tests/test_real_streaming.py::test_real_checkpoint_recovery
+3.00s teardown member3_streaming/tests/test_ieee_streaming.py::test_ieee_stateful_long_span_parity
+3.00s teardown member3_streaming/tests/test_fast_unit.py::test_kafka_connectivity
+3.00s teardown member3_streaming/tests/test_real_streaming.py::test_real_checkpoint_plain_restart_failure
+3.00s teardown member3_streaming/tests/test_real_streaming.py::test_real_streaming_late_event_pending
+3.00s teardown member3_streaming/tests/test_fast_unit.py::test_all_dlq_reason_codes_unit
+3.00s teardown member3_streaming/tests/test_ieee_streaming.py::test_ieee_all_dlq_codes
+3.00s teardown member3_streaming/tests/test_real_streaming.py::test_real_streaming_all_dlq_codes
+3.00s teardown member3_streaming/tests/test_ieee_streaming.py::test_ieee_late_event_routing
+3.00s teardown member3_streaming/tests/test_contract.py::test_contract_columns_match_paysim_output_schema
+3.00s teardown member3_streaming/tests/test_ieee_streaming.py::test_ieee_checkpoint_recovery
+3.00s teardown member3_streaming/tests/test_real_streaming.py::test_real_streaming_late_event_routing
+3.00s teardown member3_streaming/tests/test_contract.py::test_contract_tier_b_rationale
+3.00s teardown member3_streaming/tests/test_real_streaming.py::test_real_streaming_parity
+1.04s call     member3_streaming/tests/test_ieee_streaming.py::test_ieee_parity_negative_control
+0.52s call     member3_streaming/tests/test_ieee_contract.py::test_ieee_contract_columns_match_spark_schema_and_parquet
+0.09s call     member3_streaming/tests/test_fast_unit.py::test_kafka_connectivity
+0.02s call     member3_streaming/tests/test_fast_unit.py::test_negative_control_parity_failure
+0.02s call     member3_streaming/tests/test_contract.py::test_contract_columns_match_paysim_output_schema
+0.01s setup    member3_streaming/tests/test_real_streaming.py::test_real_streaming_all_dlq_codes
+
+(31 durations < 0.005s hidden.  Use -vv to show these durations.)
+=========================== short test summary info ===========================
+FAILED member3_streaming/tests/test_ieee_streaming.py::test_ieee_stateful_tie_boundary_oracle
+FAILED member3_streaming/tests/test_ieee_streaming.py::test_ieee_late_event_routing
+FAILED member3_streaming/tests/test_ieee_streaming.py::test_ieee_checkpoint_recovery
+FAILED member3_streaming/tests/test_real_streaming.py::test_real_streaming_late_event_routing
+FAILED member3_streaming/tests/test_real_streaming.py::test_real_checkpoint_recovery
+FAILED member3_streaming/tests/test_real_streaming.py::test_real_streaming_long_span_parity
+================== 6 failed, 19 passed in 1569.15s (0:26:09) ==================
+
+Pytest exited with return code: 1
