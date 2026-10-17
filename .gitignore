@@ -50,6 +50,8 @@ scratch/
 output/*.parquet
 member3_streaming/checkpoints/
 member3_streaming/scratch_*
+member3_streaming/*.log
+member3_streaming/**/*.log
 
 # ============================================================
 # SECRETS / ENVIRONMENT VARIABLES
