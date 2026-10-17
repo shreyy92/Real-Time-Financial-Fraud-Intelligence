@@ -141,27 +141,36 @@ Malformed, invalid, or out-of-order events are routed to the respective DLQ topi
 
 ---
 
-## 6. Fault Tolerance & Operator Recovery Procedure
+## 6. Fault Tolerance & Recovery Procedure
 
 - Both pipelines provide **at-least-once** delivery guarantees.
 - In crash tests involving hard kills (`taskkill /F /T`) mid-batch:
   - RocksDB restores state store checkpoints exactly up to the last committed batch.
   - Spark 4.1.1 exhibits a `KafkaMicroBatchStream.metrics` NullPointerException when replaying an uncommitted batch of stateful queries, with provider independence shown (RocksDB and HDFS), upstream ticket not verified.
-- **OPERATOR WORKAROUND (Documented Rollback Procedure)**:
+
+### 6.1 IEEE Stateful Crash Recovery (Restart-Twice, No File Edits)
+- After a hard crash mid-batch, restart the consumer; the first restart completes the interrupted batch and then exits non-zero with the Spark 4.1.1 `KafkaMicroBatchStream.metrics` NPE; restart it again and it continues normally. No file edits.
+- **Evidence:** `reports/raw/PDG_restart_twice.txt` (IEEE stateful, one run, kill at 2,123, 412 byte-identical duplicates, 0 missing, 0 stateful mismatches).
+- **Supervisor Requirement:** Unattended recovery requires a supervisor that restarts the process on a non-zero exit; this was not built or tested.
+- **Scope & Limitations:** Verified on IEEE stateful only, one run; PaySim restart-twice is UNTESTED (contract still documents the PaySim operator workaround). Duplicates up to the in-flight batch size are expected; downstream consumers must deduplicate on `TransactionID` (IEEE) or `txn_id` (PaySim).
+- **Legacy procedure (not needed for IEEE):** The previous manual operator rollback procedure (stopping consumer, deleting uncommitted `offsets/N` and `offsets/.N.crc`) is not needed. Note that deleting committed files is unsafe; **never delete `commits/`**.
+
+### 6.2 PaySim Crash Recovery (Documented Operator Workaround)
+- **OPERATOR WORKAROUND (Documented Rollback Procedure for PaySim)**:
   1. Terminate running consumer (`taskkill /F /T` or `kill -9`).
   2. Inspect checkpoint directory `offsets/` vs `commits/`.
   3. Identify uncommitted orphan offset index $N$ where `offsets/N` exists but `commits/N` does NOT exist.
-  4. Delete ONLY `offsets/N` and `offsets/.N.crc`. **Never delete committed batch files**.
+  4. Delete ONLY `offsets/N` and `offsets/.N.crc`. **Never delete committed batch files (`commits/`)**.
   5. Restart consumer stream. Spark plans batch $N$ cleanly from committed offset $N-1$, restoring complete state continuity with byte-identical duplicate output.
-  6. Downstream consumers deduplicate records on `txn_id` (PaySim) or `TransactionID` (IEEE).
+  6. Downstream consumers deduplicate records on `txn_id`.
 
 ---
 
 ## 7. Known Limitations (Honest List)
 
 1. **Micro-Batch Reordering**: Events arriving within a single micro-batch are sorted ascending by timestamp/step inside the state function, meaning intra-batch out-of-order events are absorbed and reordered, not rejected as `LATE_EVENT`.
-2. **Spark 4.1.1 Replay Crash**: Hard-killing a stateful consumer mid-batch leaves an uncommitted offset file that triggers a `KafkaMicroBatchStream.metrics` NPE on unassisted restart; recovery requires the documented Operator Workaround rollback.
-3. **Continuous Test Suite Load on Windows**: Running all 25 streaming tests sequentially in rapid succession creates high OS socket churn and ephemeral port exhaustion on Windows, which can cause PySpark JVM `BlockManagerMasterEndpoint` timeouts unless OS socket cooldown pauses are observed (verified in fresh clone tests: 6/6 passed when run isolated with cooldown, and 24/25 passed in a full continuous suite run).
+2. **Spark 4.1.1 Mid-Batch Replay Crash**: Hard-killing a stateful consumer mid-batch leaves an uncommitted offset file that triggers a `KafkaMicroBatchStream.metrics` NPE on unassisted single restart; on IEEE stateful, restart-twice recovers with no file edits (unattended recovery requires a process supervisor; PaySim restart-twice is untested, operator rollback documented).
+3. **Windows Test Suite Flakiness**: Fast tests pass reliably. The streaming tests pass when run alone, but runs on Windows are flaky (BlockManager NPE or timeouts, cause unverified). Observed fresh-clone results: continuous runs 6 failed/19 passed and 1 failed/24 passed; isolated run with 60 s cooldown 2 failed/23 passed; working copy continuous 25 passed (once). The failing test differs between runs. `test_real_streaming_late_event_routing` failed in 3 of 4 fresh-clone runs; cause unverified (possibly test timing).
 4. **Member 4 Sink Status**: Member 4 integration is fully drafted with downstream deduplication examples (`example_consumer_member4.py`), but downstream team confirmation of final production sinks remains unanswered as of 2026-10-17.
 
 ---

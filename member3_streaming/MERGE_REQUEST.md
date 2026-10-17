@@ -19,7 +19,7 @@ Key components delivered:
 4. **State Management & Checkpointing**:
    - RocksDB State Store (`RocksDBStateStoreProvider`, format v5) for scalable off-heap state management.
    - Byte-identical duplicate recovery after mid-batch crash (`dup_count > 0` verified on both pipelines).
-   - Documented Operator Rollback Procedure for Spark 4.1.1 uncommitted batch replay NPE.
+   - Verified restart-twice crash recovery without file edits for IEEE stateful (`PDG_restart_twice.txt`); documented Operator Workaround rollback for PaySim.
 5. **Downstream Integration & Handoff**:
    - Complete reference deduplicating consumer (`example_consumer_member4.py`).
    - Detailed output contracts (`MEMBER3_OUTPUT_CONTRACT.md`, `MEMBER3_IEEE_OUTPUT_CONTRACT.md`) and handoff guide (`HANDOFF_MEMBER4.md`).
@@ -63,10 +63,9 @@ pytest member3_streaming/tests/ -v --durations=0
 ---
 
 ## 4. Test Evidence
-- **Automated Test Suite (Workspace)**: 25 passed in 859.53s (`reports/raw/PC_pytest_full.txt`).
-- **Fresh-Clone Test Suite**: Initial continuous run yielded 19 passed / 6 failed (`reports/raw/PD_fresh_clone_pytest.txt`). In Phase D follow-up (PDF), isolated reruns of the 6 failed tests in a fresh clone achieved 100% pass (6/6 passed, `reports/raw/PDF_rerun_*.txt`), and a full suite rerun in the fresh clone achieved 24 passed / 1 failed (`reports/raw/PDF_pytest_full.txt`).
+- **Automated Test Suite**: Fast tests pass reliably. The streaming tests pass when run alone, but runs on Windows are flaky (BlockManager NPE or timeouts, cause unverified). Observed fresh-clone results: continuous runs 6 failed/19 passed and 1 failed/24 passed; isolated run with 60 s cooldown 2 failed/23 passed; working copy continuous 25 passed (once). The failing test differs between runs. `test_real_streaming_late_event_routing` failed in 3 of 4 fresh-clone runs; cause unverified (possibly test timing).
 - **End-to-End Demo**: Clean run for PaySim (25 records, 42 cols) and IEEE (25 records, 483 cols) with downstream deduplication (`reports/raw/PD_e2e_demo.txt`).
-- **Checkpoint Crash Recovery**: PaySim (10 byte-identical duplicates) and IEEE (10 byte-identical duplicates) verified (`reports/PC_report.md`).
+- **Checkpoint Crash Recovery**: Verified restart-twice recovery without file edits on IEEE stateful (412 byte-identical duplicates, 0 missing, 0 mismatches; `reports/raw/PDG_restart_twice.txt`). Documented operator rollback workaround for PaySim.
 - **Negative Controls**: Proven failure detection on corrupted feature values (`reports/raw/PC_negative_controls.txt`).
 - **Fresh Clone Import**: Clean import verified without missing dependencies (`reports/raw/PD_fresh_clone_pytest.txt`).
 
@@ -74,8 +73,8 @@ pytest member3_streaming/tests/ -v --durations=0
 
 ## 5. Known Limitations
 1. **Micro-Batch Barrier Reordering**: Events arriving within a single micro-batch are sorted ascending by timestamp/step inside the state function; intra-batch out-of-order events are reordered rather than rejected as `LATE_EVENT`.
-2. **Spark 4.1.1 Crash Recovery Replay NPE**: Hard kills mid-batch leave an uncommitted offset file triggering a `KafkaMicroBatchStream.metrics` NPE on unassisted restart; recovery requires the documented Operator Workaround rollback.
-3. **Continuous Test Suite Load on Windows**: Running all 25 streaming integration tests sequentially in rapid succession generates heavy OS socket churn on Windows, which can lead to temporary `BlockManagerMasterEndpoint` timeouts unless socket release cooldowns are observed (verified in PDF where isolated single runs with cooldown passed 6/6 and full suite passed 24/25).
+2. **Spark 4.1.1 Crash Recovery Replay NPE**: Hard kills mid-batch leave an uncommitted offset file triggering a `KafkaMicroBatchStream.metrics` NPE on unassisted single restart; on IEEE stateful, restart-twice recovers with no file edits (unattended recovery requires a process supervisor; PaySim restart-twice is untested, operator rollback documented).
+3. **Windows Test Suite Flakiness**: Fast tests pass reliably. The streaming tests pass when run alone, but runs on Windows are flaky (BlockManager NPE or timeouts, cause unverified). Observed fresh-clone results: continuous runs 6 failed/19 passed and 1 failed/24 passed; isolated run with 60 s cooldown 2 failed/23 passed; working copy continuous 25 passed (once). The failing test differs between runs. `test_real_streaming_late_event_routing` failed in 3 of 4 fresh-clone runs; cause unverified (possibly test timing).
 4. **Member 4 Sink Status**: Integration interfaces and deduplicating downstream consumers are fully implemented and demonstrated in `member3_streaming/example_consumer_member4.py` and `HANDOFF_MEMBER4.md`. However, confirmation from the downstream modeling team regarding final production sinks remains **unanswered as of 2026-10-17**.
 
 ---

@@ -57,15 +57,15 @@ DLQ records are published to `financial_transactions_ieee_dlq` with schema:
 | `INVALID_TRANSACTIONDT` | `TransactionDT <= 0` | Raw unparsed Kafka input string |
 | `LATE_EVENT` | Event arrives with `TransactionDT < s_last_dt` or `(DT == s_last_dt and TID <= s_last_tid)` | **Enriched 472-column row** serialized at state-evaluation time |
 
-## 6. Fault Tolerance & Operator Recovery Procedure
+## 6. Fault Tolerance & Recovery Procedure
 - **State Store Backend:** RocksDB state store (`RocksDBStateStoreProvider`).
-- **Mid-Batch Crash Behavior:** PySpark Structured Streaming with Kafka source and RocksDB provider leaves an uncommitted offset file `offsets/N` on disk when killed mid-microbatch. Upon plain restart, `KafkaMicroBatchStream$.metrics` throws an NPE in `finishTrigger` because metric tracking for replayed batches is absent from in-memory driver structures.
-- **OPERATOR WORKAROUND (Documented Rollback Procedure):**
-  1. Stop consumer process (`taskkill /F /T`).
-  2. Inspect checkpoint directory `member3_streaming/checkpoints/ieee_stateful/features/`: compare integer filenames in `offsets/` vs `commits/`.
-  3. Identify uncommitted orphan offset index $N$ where `offsets/N` exists but `commits/N` does NOT exist.
-  4. Delete ONLY `offsets/N` and `offsets/.N.crc`. **NEVER delete files from `commits/`**.
-  5. Relaunch consumer stream. Spark plans batch $N$ cleanly from committed offset $N-1$, restoring complete state continuity with byte-identical duplicate output.
+- **Mid-Batch Crash Behavior & Restart-Twice Recovery (No File Edits):**
+  After a hard crash mid-batch, restart the consumer; the first restart completes the interrupted batch and then exits non-zero with the Spark 4.1.1 `KafkaMicroBatchStream.metrics` NPE; restart it again and it continues normally. No file edits.
+  - **Evidence:** `reports/raw/PDG_restart_twice.txt` (IEEE stateful, one run, kill at 2,123, 412 byte-identical duplicates, 0 missing, 0 stateful mismatches).
+  - **Supervisor Requirement:** Unattended recovery requires a supervisor that restarts the process on a non-zero exit; this was not built or tested.
+  - **Scope & Limitations:** Verified on IEEE stateful only, one run; PaySim restart-twice is UNTESTED (PaySim contract `MEMBER3_OUTPUT_CONTRACT.md` still documents the PaySim operator workaround). Duplicates up to the in-flight batch size are expected; downstream consumers must deduplicate on `TransactionID`.
+- **Legacy procedure (not needed):**
+  The previous manual operator rollback procedure (stopping consumer, deleting uncommitted `offsets/N` and `offsets/.N.crc`) is not needed. Note that deleting committed files is unsafe; **never delete `commits/`**.
 
 ## 7. Output Schema Specification (483 Columns)
 Verified 1:1 against `IEEE_OUTPUT_SCHEMA` and `data/features/ieee_features.parquet`:

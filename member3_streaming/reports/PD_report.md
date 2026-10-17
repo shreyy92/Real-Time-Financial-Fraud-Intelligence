@@ -4,7 +4,7 @@
 - **Phase**: Phase D (Chunk 12: Final Verification, Delivery, and Merge Request)
 - **Start Time**: 2026-10-17 17:10:00 IST
 - **End Time**: 2026-10-17 17:52:00 IST
-- **Status**: partial (fresh clone pytest: 19 passed / 6 failed in initial run PD_fresh_clone_pytest.txt; isolated reruns in PDF passed 6/6; second fresh clone full run passed 24/25)
+- **Status**: partial: streaming tests flaky on Windows, see README
 
 ---
 
@@ -35,7 +35,7 @@
 | Checklist Item | Result | Evidence Pointer |
 | :--- | :--- | :--- |
 | Fresh-clone import check passes for both consumers | passed | `reports/raw/PD_fresh_clone_pytest.txt` line 13 |
-| Fresh-clone full pytest run executed; raw output saved | partial: 19 passed / 6 failed | `reports/raw/PD_fresh_clone_pytest.txt` (39,007 bytes; see PDF follow-up where 6/6 passed isolated and 24/25 passed in new clone `PDF_pytest_full.txt`) |
+| Fresh-clone full pytest run executed; raw output saved | partial: streaming tests flaky on Windows, see README | `reports/raw/PD_fresh_clone_pytest.txt` (19 passed, 6 failed; see PDF and PDG runs) |
 | Clean end-to-end demo for PaySim and IEEE passes with consumer reading only topics produced in same run | passed | `reports/raw/PD_e2e_demo.txt` (7,780 bytes) |
 | README complete and consistent with contracts | passed | `member3_streaming/README.md` |
 | `FINAL_SUMMARY.md` written; roadmap table filled; every claim has evidence pointer | passed | `member3_streaming/reports/FINAL_SUMMARY.md` |
@@ -102,15 +102,14 @@ SUCCESS: Both consumer_paysim and consumer_ieee imported cleanly without missing
    - `_kill_process` in tests was modified in Phase C to use native PowerShell 3+ syntax `Where-Object ParentProcessId` rather than legacy string filters, avoiding `.Name` parsing issues in PowerShell.
 2. **Deterministic Checkpoint Recovery Duplicate Assertion**:
    - Both PaySim and IEEE checkpoint tests were repaired to enforce `dup_count == 10 > 0` with byte-identical assertion.
-3. **Sequential Load in Temp Directory**:
-   - During the fresh clone pytest run (`26m09s`), 19 tests passed and 6 timed out due to back-to-back JVM port recycling in the Windows temporary directory (`BlockManagerMasterEndpoint` registration collision).
-   - In isolation and in the primary repository monolithic run (`PC_pytest_full.txt`), all 25 tests pass cleanly in 14m19s without port starvation.
+3. **Windows Test Suite Flakiness**:
+   - Fast tests pass reliably. The streaming tests pass when run alone, but runs on Windows are flaky (BlockManager NPE or timeouts, cause unverified). Observed fresh-clone results: continuous runs 6 failed/19 passed and 1 failed/24 passed; isolated run with 60 s cooldown 2 failed/23 passed; working copy continuous 25 passed (once). The failing test differs between runs. `test_real_streaming_late_event_routing` failed in 3 of 4 fresh-clone runs; cause unverified (possibly test timing).
 
 ---
 
 ## 7. Surprises and Limitations
 1. **Intra-Batch Reordering**: PySpark Structured Streaming processes micro-batches as sets; transactions within a single batch are sorted ascending by timestamp inside the Pandas state UDF, meaning intra-batch out-of-order records are reordered rather than rejected as `LATE_EVENT`.
-2. **Spark 4.1.1 Replay Crash**: Stateful streaming restart from uncommitted orphan offset files triggers an internal `KafkaMicroBatchStream.metrics` NPE; recovery requires the documented Operator Workaround rollback.
+2. **Spark 4.1.1 Crash Recovery Replay NPE**: Hard kills mid-batch leave an uncommitted offset file triggering a `KafkaMicroBatchStream.metrics` NPE on unassisted single restart; on IEEE stateful, restart-twice recovers with no file edits (unattended recovery requires a process supervisor; PaySim restart-twice is untested, operator rollback documented).
 3. **Member 4 Sink Status**: Integration interfaces and deduplicating downstream consumers are fully implemented and demonstrated in `member3_streaming/example_consumer_member4.py` and `HANDOFF_MEMBER4.md`. However, confirmation from the downstream modeling team regarding final production sinks remains **unanswered as of 2026-10-17**.
 
 ---

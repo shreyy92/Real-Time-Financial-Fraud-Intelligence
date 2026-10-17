@@ -1,0 +1,341 @@
+================================================================================
+MEMBER 3 ISOLATED TEST RUNNER (ALL 25 TESTS)
+Total Tests: 12 Fast, 13 Slow (Isolated with 60s cooldown)
+================================================================================
+
+--- PART 1: Fast Unit & Contract Tests ---
+[PASSED] member3_streaming/tests/test_contract.py::test_contract_columns_match_paysim_output_schema (5.57s)
+[PASSED] member3_streaming/tests/test_contract.py::test_contract_dlq_codes_match_code_constants (5.60s)
+[PASSED] member3_streaming/tests/test_contract.py::test_contract_tier_b_rationale (6.42s)
+[PASSED] member3_streaming/tests/test_contract.py::test_dlq_record_schema_fields (5.06s)
+[PASSED] member3_streaming/tests/test_fast_unit.py::test_kafka_connectivity (5.58s)
+[PASSED] member3_streaming/tests/test_fast_unit.py::test_schema_parsing_valid_and_malformed (5.16s)
+[PASSED] member3_streaming/tests/test_fast_unit.py::test_all_dlq_reason_codes_unit (5.22s)
+[PASSED] member3_streaming/tests/test_fast_unit.py::test_negative_control_parity_failure (6.49s)
+[PASSED] member3_streaming/tests/test_ieee_contract.py::test_ieee_contract_columns_match_spark_schema_and_parquet (7.67s)
+[PASSED] member3_streaming/tests/test_ieee_contract.py::test_ieee_contract_dlq_codes_match_code_constants (5.39s)
+[PASSED] member3_streaming/tests/test_ieee_contract.py::test_ieee_dlq_record_schema_fields (4.94s)
+[PASSED] member3_streaming/tests/test_ieee_streaming.py::test_ieee_parity_negative_control (5.49s)
+
+--- PART 2: Slow Streaming Tests (Isolated + 60s Cooldown) ---
+
+[1/13] Running slow test: member3_streaming/tests/test_ieee_streaming.py::test_ieee_stateless_parity_small ...
+--> [FAILED] member3_streaming/tests/test_ieee_streaming.py::test_ieee_stateless_parity_small (267.28s)
+FAILURE OUTPUT:
+============================= test session starts =============================
+platform win32 -- Python 3.12.6, pytest-9.0.2, pluggy-1.6.0 -- C:\Users\akshi\AppData\Local\Programs\Python\Python312\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\akshi\AppData\Local\Temp\fresh_clone_pdg
+configfile: pytest.ini
+plugins: anyio-4.12.0, langsmith-0.3.45
+collecting ... collected 1 item
+
+member3_streaming/tests/test_ieee_streaming.py::test_ieee_stateless_parity_small 
+[CONSUMER LOG ON TIMEOUT]:
+.apache.spark.rpc.netty.Inbox.safelyCall(Inbox.scala:216)
+	at org.apache.spark.rpc.netty.Inbox.process(Inbox.scala:101)
+	at org.apache.spark.rpc.netty.MessageLoop.org$apache$spark$rpc$netty$MessageLoop$$receiveLoop(MessageLoop.scala:76)
+	at org.apache.spark.rpc.netty.MessageLoop$$anon$1.run(MessageLoop.scala:42)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+	at java.base/java.lang.Thread.run(Thread.java:840)
+26/10/17 20:34:39 WARN Executor: Issue communicating with driver in heartbeater
+org.apache.spark.SparkException: Exception thrown in awaitResult: 
+	at org.apache.spark.util.SparkThreadUtils$.awaitResult(SparkThreadUtils.scala:53)
+	at org.apache.spark.util.ThreadUtils$.awaitResult(ThreadUtils.scala:359)
+	at org.apache.spark.rpc.RpcTimeout.awaitResult(RpcTimeout.scala:75)
+	at org.apache.spark.rpc.RpcEndpointRef.askSync(RpcEndpointRef.scala:101)
+	at org.apache.spark.rpc.RpcEndpointRef.askSync(RpcEndpointRef.scala:85)
+	at org.apache.spark.storage.BlockManagerMaster.registerBlockManager(BlockManagerMaster.scala:81)
+	at org.apache.spark.storage.BlockManager.reregister(BlockManager.scala:674)
+	at org.apache.spark.executor.Executor.reportHeartBeat(Executor.scala:1363)
+	at org.apache.spark.executor.Executor.$anonfun$heartbeater$1(Executor.scala:356)
+	at scala.runtime.java8.JFunction0$mcV$sp.apply(JFunction0$mcV$sp.scala:18)
+	at org.apache.spark.util.Utils$.logUncaughtExceptions(Utils.scala:1941)
+	at org.apache.spark.Heartbeater$$anon$1.run(Heartbeater.scala:46)
+	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:539)
+	at java.base/java.util.concurrent.FutureTask.runAndReset(FutureTask.java:305)
+	at java.base/java.util.concurrent.ScheduledThreadPoolExecutor$ScheduledFutureTask.run(ScheduledThreadPoolExecutor.java:305)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+	at java.base/java.lang.Thread.run(Thread.java:840)
+Caused by: java.lang.NullPointerException: Cannot invoke "org.apache.spark.storage.BlockManagerId.executorId()" because "idWithoutTopologyInfo" is null
+	at org.apache.spark.storage.BlockManagerMasterEndpoint.org$apache$spark$storage$BlockManagerMasterEndpoint$$register(BlockManagerMasterEndpoint.scala:696)
+	at org.apache.spark.storage.BlockManagerMasterEndpoint$$anonfun$receiveAndReply$1.applyOrElse(BlockManagerMasterEndpoint.scala:141)
+	at org.apache.spark.rpc.netty.Inbox.$anonfun$process$1(Inbox.scala:104)
+	at org.apache.spark.rpc.netty.Inbox.safelyCall(Inbox.scala:216)
+	at org.apache.spark.rpc.netty.Inbox.process(Inbox.scala:101)
+	at org.apache.spark.rpc.netty.MessageLoop.org$apache$spark$rpc$netty$MessageLoop$$receiveLoop(MessageLoop.scala:76)
+	at org.apache.spark.rpc.netty.MessageLoop$$anon$1.run(MessageLoop.scala:42)
+	... 3 more
+
+FAILED
+
+================================== FAILURES ===================================
+______________________ test_ieee_stateless_parity_small _______________________
+
+    @pytest.mark.slow
+    def test_ieee_stateless_parity_small():
+        """Verify stateless streaming parity on ~500 rows across all 471 compared columns.
+    
+        Starts real PySpark query: yes (stateless consumer_ieee.py).
+        Reads leftover data: no (ephemeral topics, isolated checkpoint).
+        """
+        uid = uuid.uuid4().hex[:6]
+        in_topic = f"in_stateless_{uid}"
+        out_topic = f"out_stateless_{uid}"
+        dlq_topic = f"dlq_stateless_{uid}"
+        chk_dir = os.path.abspath(f"member3_streaming/checkpoints/chk_stateless_{uid}")
+        log_file = os.path.abspath(f"member3_streaming/scratch_stateless_{uid}.log")
+    
+        admin = KafkaAdminClient(bootstrap_servers=[BROKER], request_timeout_ms=5000)
+        admin.create_topics([
+            NewTopic(name=in_topic, num_partitions=1, replication_factor=1),
+            NewTopic(name=out_topic, num_partitions=1, replication_factor=1),
+            NewTopic(name=dlq_topic, num_partitions=1, replication_factor=1),
+        ])
+    
+        proc = None
+        try:
+            # Load 500 rows
+            df_clean = pd.read_parquet(CLEAN_PARQUET).sort_values(
+                by=["TransactionDT", "TransactionID"], ascending=[True, True], kind="stable"
+            ).head(500)
+    
+            producer = KafkaProducer(
+                bootstrap_servers=[BROKER],
+                key_serializer=lambda k: str(k).encode("utf-8") if k is not None else None,
+                value_serializer=json_serializer,
+            )
+            for rec in df_clean.to_dict(orient="records"):
+                msg = sanitize_record(rec)
+                producer.send(in_topic, key=str(msg["card1"]), value=msg)
+            producer.flush()
+            producer.close()
+    
+            cmd = [
+                sys.executable, "-m", "member3_streaming.consumer_ieee",
+                "--bootstrap-servers", BROKER,
+                "--input-topic", in_topic,
+                "--output-topic", out_topic,
+                "--dlq-topic", dlq_topic,
+                "--checkpoint-location", chk_dir,
+                "--stateless-only",
+            ]
+            with open(log_file, "w") as f:
+                proc = subprocess.Popen(cmd, stdout=f, stderr=subprocess.STDOUT)
+    
+            # Poll output topic
+            consumer = KafkaConsumer(bootstrap_servers=[BROKER], auto_offset_reset="earliest", consumer_timeout_ms=1000)
+            consumer.assign([TopicPartition(out_topic, 0)])
+    
+            records = {}
+            t0 = time.time()
+            while len(records) < 500 and (time.time() - t0) < 240:
+                rec_map = consumer.poll(timeout_ms=1000)
+                if rec_map:
+                    for tp, msgs in rec_map.items():
+                        for msg in msgs:
+                            val = json.loads(msg.value.decode("utf-8"))
+                            records[val["TransactionID"]] = val
+                time.sleep(0.5)
+            consumer.close()
+    
+            if len(records) < 500 and os.path.exists(log_file):
+                with open(log_file, "r") as lf:
+                    print("\n[CONSUMER LOG ON TIMEOUT]:\n" + lf.read()[-3000:])
+    
+>           assert len(records) == 500, f"Expected 500 output records, got {len(records)}"
+E           AssertionError: Expected 500 output records, got 0
+E           assert 0 == 500
+E            +  where 0 = len({})
+
+member3_streaming\tests\test_ieee_streaming.py:211: AssertionError
+------------------------------ Captured log call ------------------------------
+WARNING  kafka.coordinator.consumer:consumer.py:105 group_id is None: disabling auto-commit.
+=========================== short test summary info ===========================
+FAILED member3_streaming/tests/test_ieee_streaming.py::test_ieee_stateless_parity_small
+======================== 1 failed in 265.61s (0:04:25) ========================
+
+
+Cooling down for 60 seconds (TCP socket TIME_WAIT release)...
+
+[2/13] Running slow test: member3_streaming/tests/test_ieee_streaming.py::test_ieee_stateful_tie_boundary_oracle ...
+--> [PASSED] member3_streaming/tests/test_ieee_streaming.py::test_ieee_stateful_tie_boundary_oracle (55.01s)
+Cooling down for 60 seconds (TCP socket TIME_WAIT release)...
+
+[3/13] Running slow test: member3_streaming/tests/test_ieee_streaming.py::test_ieee_stateful_long_span_parity ...
+--> [PASSED] member3_streaming/tests/test_ieee_streaming.py::test_ieee_stateful_long_span_parity (75.98s)
+Cooling down for 60 seconds (TCP socket TIME_WAIT release)...
+
+[4/13] Running slow test: member3_streaming/tests/test_ieee_streaming.py::test_ieee_late_event_routing ...
+--> [PASSED] member3_streaming/tests/test_ieee_streaming.py::test_ieee_late_event_routing (60.34s)
+Cooling down for 60 seconds (TCP socket TIME_WAIT release)...
+
+[5/13] Running slow test: member3_streaming/tests/test_ieee_streaming.py::test_ieee_all_dlq_codes ...
+--> [PASSED] member3_streaming/tests/test_ieee_streaming.py::test_ieee_all_dlq_codes (35.75s)
+Cooling down for 60 seconds (TCP socket TIME_WAIT release)...
+
+[6/13] Running slow test: member3_streaming/tests/test_ieee_streaming.py::test_ieee_checkpoint_recovery ...
+--> [PASSED] member3_streaming/tests/test_ieee_streaming.py::test_ieee_checkpoint_recovery (151.53s)
+Cooling down for 60 seconds (TCP socket TIME_WAIT release)...
+
+[7/13] Running slow test: member3_streaming/tests/test_real_streaming.py::test_real_streaming_parity ...
+--> [PASSED] member3_streaming/tests/test_real_streaming.py::test_real_streaming_parity (66.21s)
+Cooling down for 60 seconds (TCP socket TIME_WAIT release)...
+
+[8/13] Running slow test: member3_streaming/tests/test_real_streaming.py::test_real_streaming_all_dlq_codes ...
+--> [PASSED] member3_streaming/tests/test_real_streaming.py::test_real_streaming_all_dlq_codes (57.11s)
+Cooling down for 60 seconds (TCP socket TIME_WAIT release)...
+
+[9/13] Running slow test: member3_streaming/tests/test_real_streaming.py::test_real_streaming_late_event_routing ...
+--> [FAILED] member3_streaming/tests/test_real_streaming.py::test_real_streaming_late_event_routing (198.35s)
+FAILURE OUTPUT:
+============================= test session starts =============================
+platform win32 -- Python 3.12.6, pytest-9.0.2, pluggy-1.6.0 -- C:\Users\akshi\AppData\Local\Programs\Python\Python312\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\akshi\AppData\Local\Temp\fresh_clone_pdg
+configfile: pytest.ini
+plugins: anyio-4.12.0, langsmith-0.3.45
+collecting ... collected 1 item
+
+member3_streaming/tests/test_real_streaming.py::test_real_streaming_late_event_routing FAILED
+
+================================== FAILURES ===================================
+___________________ test_real_streaming_late_event_routing ____________________
+
+    @pytest.mark.slow
+    def test_real_streaming_late_event_routing():
+        """Verify that an out-of-order event arriving behind committed step is routed to DLQ as LATE_EVENT.
+    
+        Starts its OWN Spark Structured Streaming consumer on freshly created unique topics.
+        Sends step 5 event, waits for commitment, then sends step 3 event and validates DLQ routing.
+        """
+        uid = uuid.uuid4().hex[:6]
+        in_topic = f"test_late_in_{uid}"
+        out_topic = f"test_late_out_{uid}"
+        dlq_topic = f"test_late_dlq_{uid}"
+        chk_dir = os.path.abspath(f"member3_streaming/checkpoints/test_chk_late_{uid}")
+        log_path = os.path.abspath(f"member3_streaming/scratch_late_{uid}.log")
+    
+        admin = KafkaAdminClient(bootstrap_servers=[BROKER], request_timeout_ms=5000)
+        admin.create_topics([
+            NewTopic(name=in_topic, num_partitions=1, replication_factor=1),
+            NewTopic(name=out_topic, num_partitions=1, replication_factor=1),
+            NewTopic(name=dlq_topic, num_partitions=1, replication_factor=1),
+        ])
+    
+        proc = None
+        try:
+            # Launch Spark Structured Streaming consumer
+            cmd = [
+                sys.executable, "-m", "member3_streaming.consumer_paysim",
+                "--bootstrap-servers", BROKER,
+                "--input-topic", in_topic,
+                "--output-topic", out_topic,
+                "--dlq-topic", dlq_topic,
+                "--checkpoint-location", chk_dir,
+                "--max-offsets-per-trigger", "1",
+            ]
+            with open(log_path, "w") as log_file:
+                proc = subprocess.Popen(cmd, stdout=log_file, stderr=subprocess.STDOUT)
+    
+            producer = KafkaProducer(
+                bootstrap_servers=[BROKER],
+                value_serializer=lambda v: json.dumps(v).encode("utf-8")
+            )
+    
+            dest_key = f"M_LATE_{uid}"
+            msg1 = {
+                "step": 5, "type": "TRANSFER", "amount": 1000.0,
+                "nameOrig": f"C_ORIG1_{uid}", "oldbalanceOrg": 5000.0, "newbalanceOrig": 4000.0,
+                "nameDest": dest_key, "oldbalanceDest": 0.0, "newbalanceDest": 0.0,
+                "isFraud": 0, "isFlaggedFraud": 0
+            }
+            producer.send(in_topic, value=msg1)
+            producer.flush()
+    
+            # Wait for msg1 in output topic
+            consumer_out = KafkaConsumer(
+                bootstrap_servers=[BROKER],
+                auto_offset_reset="earliest",
+                consumer_timeout_ms=1000,
+            )
+            consumer_out.assign([TopicPartition(out_topic, 0)])
+    
+            found_out = False
+            t0 = time.time()
+            while (time.time() - t0) < 180:
+                rec_map = consumer_out.poll(timeout_ms=1000)
+                if rec_map:
+                    for tp, msgs in rec_map.items():
+                        if msgs:
+                            found_out = True
+                            break
+                    if found_out:
+                        break
+                time.sleep(0.5)
+            consumer_out.close()
+>           assert found_out, "Initial step 5 message was not processed into output topic"
+E           AssertionError: Initial step 5 message was not processed into output topic
+E           assert False
+
+member3_streaming\tests\test_real_streaming.py:369: AssertionError
+------------------------------ Captured log call ------------------------------
+WARNING  kafka.coordinator.consumer:consumer.py:105 group_id is None: disabling auto-commit.
+=========================== short test summary info ===========================
+FAILED member3_streaming/tests/test_real_streaming.py::test_real_streaming_late_event_routing
+======================== 1 failed in 196.49s (0:03:16) ========================
+
+
+Cooling down for 60 seconds (TCP socket TIME_WAIT release)...
+
+[10/13] Running slow test: member3_streaming/tests/test_real_streaming.py::test_real_streaming_late_event_pending ...
+--> [PASSED] member3_streaming/tests/test_real_streaming.py::test_real_streaming_late_event_pending (73.96s)
+Cooling down for 60 seconds (TCP socket TIME_WAIT release)...
+
+[11/13] Running slow test: member3_streaming/tests/test_real_streaming.py::test_real_checkpoint_recovery ...
+--> [PASSED] member3_streaming/tests/test_real_streaming.py::test_real_checkpoint_recovery (141.18s)
+Cooling down for 60 seconds (TCP socket TIME_WAIT release)...
+
+[12/13] Running slow test: member3_streaming/tests/test_real_streaming.py::test_real_checkpoint_plain_restart_failure ...
+--> [PASSED] member3_streaming/tests/test_real_streaming.py::test_real_checkpoint_plain_restart_failure (286.98s)
+Cooling down for 60 seconds (TCP socket TIME_WAIT release)...
+
+[13/13] Running slow test: member3_streaming/tests/test_real_streaming.py::test_real_streaming_long_span_parity ...
+--> [PASSED] member3_streaming/tests/test_real_streaming.py::test_real_streaming_long_span_parity (53.49s)
+
+================================================================================
+MEMBER 3 TEST SUITE SUMMARY (ISOLATED RUN)
+================================================================================
+Test ID                                                                     | Result   | Duration
+-----------------------------------------------------------------------------------------------
+test_contract.py::test_contract_columns_match_paysim_output_schema          | PASSED   | 5.57s
+test_contract.py::test_contract_dlq_codes_match_code_constants              | PASSED   | 5.60s
+test_contract.py::test_contract_tier_b_rationale                            | PASSED   | 6.42s
+test_contract.py::test_dlq_record_schema_fields                             | PASSED   | 5.06s
+test_fast_unit.py::test_kafka_connectivity                                  | PASSED   | 5.58s
+test_fast_unit.py::test_schema_parsing_valid_and_malformed                  | PASSED   | 5.16s
+test_fast_unit.py::test_all_dlq_reason_codes_unit                           | PASSED   | 5.22s
+test_fast_unit.py::test_negative_control_parity_failure                     | PASSED   | 6.49s
+test_ieee_contract.py::test_ieee_contract_columns_match_spark_schema_and_parquet | PASSED   | 7.67s
+test_ieee_contract.py::test_ieee_contract_dlq_codes_match_code_constants    | PASSED   | 5.39s
+test_ieee_contract.py::test_ieee_dlq_record_schema_fields                   | PASSED   | 4.94s
+test_ieee_streaming.py::test_ieee_parity_negative_control                   | PASSED   | 5.49s
+test_ieee_streaming.py::test_ieee_stateless_parity_small                    | FAILED   | 267.28s
+test_ieee_streaming.py::test_ieee_stateful_tie_boundary_oracle              | PASSED   | 55.01s
+test_ieee_streaming.py::test_ieee_stateful_long_span_parity                 | PASSED   | 75.98s
+test_ieee_streaming.py::test_ieee_late_event_routing                        | PASSED   | 60.34s
+test_ieee_streaming.py::test_ieee_all_dlq_codes                             | PASSED   | 35.75s
+test_ieee_streaming.py::test_ieee_checkpoint_recovery                       | PASSED   | 151.53s
+test_real_streaming.py::test_real_streaming_parity                          | PASSED   | 66.21s
+test_real_streaming.py::test_real_streaming_all_dlq_codes                   | PASSED   | 57.11s
+test_real_streaming.py::test_real_streaming_late_event_routing              | FAILED   | 198.35s
+test_real_streaming.py::test_real_streaming_late_event_pending              | PASSED   | 73.96s
+test_real_streaming.py::test_real_checkpoint_recovery                       | PASSED   | 141.18s
+test_real_streaming.py::test_real_checkpoint_plain_restart_failure          | PASSED   | 286.98s
+test_real_streaming.py::test_real_streaming_long_span_parity                | PASSED   | 53.49s
+-----------------------------------------------------------------------------------------------
+TOTAL: 25 tests | PASSED: 23 | FAILED: 2
+================================================================================
+
