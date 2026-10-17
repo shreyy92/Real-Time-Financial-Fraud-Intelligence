@@ -1,8 +1,11 @@
 # Chunk 5 Report: Member 4 Handoff
 
+> [!NOTE]
+> **Correction Note (Phase B):** Status updated to `drafted, awaiting Member 4 reply` pending confirmation of sink destination from Member 4. Unmeasured phrase "sub-second" in Section 3 removed; downstream model scoring latency is unmeasured.
+
 **Execution Mode**: Real Kafka: **YES** | Real Spark Structured Streaming query: **N/A** (Downstream Consumer Validation)  
 **Date**: 2026-10-13  
-**Status**: **PASSED**
+**Status**: **DRAFTED, AWAITING MEMBER 4 REPLY**
 
 ---
 
@@ -49,4 +52,4 @@ Total unique records consumed and deduplicated: 10
 The default design decision in case Member 4 does not request an alternative sink was recorded in [`member3_streaming/DECISIONS.md`](file:///e:/vs%20code/projects/data-science/Real-Time-Financial-Fraud-Intelligence/member3_streaming/DECISIONS.md):
 - **Choice**: Kafka topic `financial_features_paysim` is the primary sink interface.
 - **Alternatives considered**: Parquet partition files, Delta table, gRPC.
-- **Rationale**: Real-time pub/sub decoupling enables sub-second model scoring with consumer group scaling.
+- **Rationale**: Real-time pub/sub decoupling enables downstream inference consumers to scale independently (downstream scoring latency is unmeasured).

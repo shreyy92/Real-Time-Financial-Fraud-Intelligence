@@ -82,11 +82,13 @@ The streaming output schema matches the batch feature store contract (`data/feat
 
 1. **Partition Ordering**:
    Within each Kafka partition and for any given `nameDest` grouping key, transactions are processed and emitted in monotonic order by simulation `step`.
-2. **Same-Step Tie-Breaking**:
+2. **Within-Microbatch Ordering & Late-Event Barrier**:
+   Within a single micro-batch, late events arriving out-of-order are stably sorted ascending by `(step)` before state evaluation. They are rejected as `LATE_EVENT` only relative to already committed or pending state from prior micro-batches (as proven in C01R micro-batch barrier findings).
+3. **Same-Step Tie-Breaking**:
    Transactions arriving with the same `step` for the same destination are batched together. Current-step transactions do NOT observe each other's state updates, matching the exact batch temporal contract.
-3. **At-Least-Once Delivery**:
+4. **At-Least-Once Delivery**:
    Spark Structured Streaming with RocksDB state stores guarantees at-least-once delivery. If an executor or driver process terminates unexpectedly mid-batch, uncommitted batches will be re-processed upon restart.
-4. **Deduplication on `txn_id`**:
+5. **Deduplication on `txn_id`**:
    Downstream consumers (model serving, feature store ingest, or feature monitoring) MUST treat `txn_id` as the idempotent deduplication primary key. Duplicates produced due to crash recovery are guaranteed to be byte-identical.
 
 ---
@@ -98,25 +100,29 @@ The streaming output schema matches the batch feature store contract (`data/feat
 - **Payload Schema**:
   ```json
   {
-    "raw_value": "<raw_unmodified_json_string>",
+    "raw_value": "<serialized JSON payload>",
     "reason_code": "<REASON_CODE>",
     "ingested_at": "2026-10-13T18:30:00.000000+00:00"
   }
   ```
+- **`ingested_at` Source**: Stamped with UTC ISO-8601 timestamp by the PySpark consumer query via `current_timestamp()` upon DLQ routing. Because batch evaluation evaluates a micro-batch at once, records emitted in the same micro-batch share identical microsecond timestamps.
+- **`raw_value` Payload Content**:
+  - For validation failures (`MALFORMED_JSON`, `MISSING_FIELD`, `BAD_STEP_TYPE`, `BAD_TYPE`, `BAD_FIELD_TYPE`, `NEGATIVE_AMOUNT`, `INVALID_STEP`, `INVALID_LABEL`): Contains the raw unmodified Kafka input string.
+  - For `LATE_EVENT`: Contains the **enriched row** serialized at state-evaluation time.
 
 ### Reason Codes Reference Table (Generated from Code Constants)
 
-| Reason Code | Description |
-|---|---|
-| `MALFORMED_JSON` | Payload is not valid JSON or not a JSON object |
-| `MISSING_FIELD` | One or more required fields are missing or null |
-| `BAD_STEP_TYPE` | Field 'step' is not an integer (e.g. string or boolean) |
-| `BAD_TYPE` | Field 'type' is not one of the allowed transaction types (TRANSFER, CASH_OUT, PAYMENT, CASH_IN, DEBIT) |
-| `BAD_FIELD_TYPE` | A non-step field has the wrong JSON type (e.g. amount is non-numeric string or boolean, name is non-string) |
-| `NEGATIVE_AMOUNT` | Transaction amount is negative (< 0.0) |
-| `INVALID_STEP` | Simulation step is out of bounds (step < 1 or step > 743) |
-| `INVALID_LABEL` | Target label 'isFraud' is not in {0, 1} |
-| `LATE_EVENT` | Transaction timestamp/step is strictly older than key's committed latest or pending step |
+| Reason Code | Trigger Condition | `raw_value` Payload Content |
+|---|---|---|
+| `MALFORMED_JSON` | Payload is not valid JSON or not a JSON object | Raw unmodified Kafka input string |
+| `MISSING_FIELD` | One or more required fields are missing or null | Raw unmodified Kafka input string |
+| `BAD_STEP_TYPE` | Field 'step' is not an integer (e.g. string or boolean) | Raw unmodified Kafka input string |
+| `BAD_TYPE` | Field 'type' is not one of allowed types (TRANSFER, CASH_OUT, PAYMENT, CASH_IN, DEBIT) | Raw unmodified Kafka input string |
+| `BAD_FIELD_TYPE` | A non-step field has wrong JSON type (e.g. non-numeric amount) | Raw unmodified Kafka input string |
+| `NEGATIVE_AMOUNT` | Transaction amount is negative (< 0.0) | Raw unmodified Kafka input string |
+| `INVALID_STEP` | Simulation step is out of bounds (step < 1 or step > 743) | Raw unmodified Kafka input string |
+| `INVALID_LABEL` | Target label 'isFraud' is not in {0, 1} | Raw unmodified Kafka input string |
+| `LATE_EVENT` | Transaction step is strictly older than key's committed latest or pending step | Enriched row serialized at state evaluation time |
 
 ---
 
@@ -138,8 +144,8 @@ The streaming feature engine strictly implements **Tier A Features** (temporal, 
 3. **State Store Provider Independence & Recovery Limitation**:
    - In a minimal stateless Kafka-to-Kafka passthrough query (`readStream` -> `writeStream`), replaying an uncommitted batch (`offsets/N` without `commits/N`) did **not** reproduce the NPE.
    - In stateful streaming queries using `applyInPandasWithState`, replaying an uncommitted batch (`offsets/N` without `commits/N`) reproduces `java.lang.NullPointerException: Cannot invoke "scala.collection.IterableOps.map(scala.Function1)" because the return value of "scala.Option.get()" is null at org.apache.spark.sql.kafka010.KafkaMicroBatchStream$.metrics` under **both** `RocksDBStateStoreProvider` and `HDFSBackedStateStoreProvider` (tested on fresh checkpoints for each provider).
-   - Thus, this defect is not tied to RocksDB, but affects uncommitted batch replay of stateful Kafka streaming queries in Spark 4.1.1.
-   - The verified operational recovery workaround for stateful pipelines in Spark 4.1.1 is to roll back the orphan uncommitted `offsets/N` file before restarting the query, allowing Spark to resume safely from the last fully committed batch `commits/(N-1)`. Downstream systems must deduplicate on `txn_id`.
+   - Thus, this defect is not tied to RocksDB, but is a Spark 4.1.1 `KafkaMicroBatchStream.metrics` NPE observed when replaying an uncommitted batch of stateful queries, with provider independence shown (RocksDB and HDFS), upstream ticket not verified.
+   - The verified OPERATOR WORKAROUND for stateful pipelines in Spark 4.1.1 is to roll back the orphan uncommitted `offsets/N` file before restarting the query, allowing Spark to resume safely from the last fully committed batch `commits/(N-1)`. Automatic recovery without operator rollback is currently not supported for mid-batch crashes in Spark 4.1.1. Downstream systems must deduplicate on `txn_id`.
 
 ---
 
@@ -169,3 +175,10 @@ To replay transactions from an arbitrary point in time or re-generate features:
    .option("startingOffsets", '{"financial_transactions_paysim":{"0": 5000}}')
    ```
 3. Start the consumer with a dedicated checkpoint directory to avoid conflicting with existing commit logs.
+
+---
+
+## 9. Contract vs Schema Drift Check
+
+The automated test `member3_streaming/tests/test_contract.py` functions strictly as a documentation drift check. It verifies that the column tables and DLQ reason code constants defined in this markdown contract document remain in exact 1:1 synchronization with the runtime PySpark schemas (`PAYSIM_OUTPUT_SCHEMA`, `DLQ_RECORD_SCHEMA`) and code constants (`DLQ_REASON_CODES`).
+

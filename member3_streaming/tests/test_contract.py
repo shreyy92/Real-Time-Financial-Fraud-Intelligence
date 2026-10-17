@@ -1,4 +1,4 @@
-"""Tests asserting contract columns and DLQ specifications strictly match code schema and constants."""
+"""Documentation drift check: asserts contract markdown tables match runtime PySpark schemas and constants."""
 
 import os
 import re

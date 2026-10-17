@@ -1,0 +1,7 @@
+=== Phase B Forbidden Phrases Grep Check in member3_streaming ===
+Pattern: "SPARK- (speculative ticket IDs)" -> 1 occurrences
+  member3_streaming\reports\R1_R5_repair_report.md:68: - Removed all occurrences of speculative ticket IDs (`SPARK-57438`, `SPARK-55236`, `SPARK-55271`) across the codebase.
+Pattern: "sub-second" -> 1 occurrences
+  member3_streaming\reports\C05_report.md:4: > **Correction Note (Phase B):** Status updated to `drafted, awaiting Member 4 reply` pending confirmation of sink destination from Member 4. Unmeasured phrase "sub-second" in Section 3 removed; downstream model scoring latency is unmeasured.
+Pattern: "Kafka connector bug" -> 0 occurrences
+Pattern: "all standard forward pushes" -> 0 occurrences

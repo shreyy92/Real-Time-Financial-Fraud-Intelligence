@@ -1,20 +1,26 @@
-# Member 4 Handoff: Real-Time PaySim Feature Stream
+# Member 4 Handoff: Real-Time Streaming Feature Pipelines (PaySim & IEEE-CIS)
 
-## 1. Stream Specification & Contract
-
-- **Output Topic**: `financial_features_paysim`
-- **DLQ Topic**: `financial_transactions_paysim_dlq`
-- **Contract Path**: [`member3_streaming/MEMBER3_OUTPUT_CONTRACT.md`](file:///e:/vs%20code/projects/data-science/Real-Time-Financial-Fraud-Intelligence/member3_streaming/MEMBER3_OUTPUT_CONTRACT.md)
-- **Feature Version**: `v1.0`
-- **Schema**: 42 columns (identical to Member 2's Tier A batch feature store contract in `data/features/paysim_features.parquet`, plus `feature_version`).
-- **Primary Deduplication Key**: `txn_id` (SHA-256 hash string).
+**Handoff Status:** `drafted, awaiting Member 4 reply`  
+**Last Updated:** 2026-10-17  
 
 ---
 
-## 2. How to Start the Streaming Feature Engine
+## 1. Stream Specifications & Contracts
 
-Run the Spark Structured Streaming consumer from repository root:
+Member 3 provides two real-time feature streaming engines matching Member 2's batch ground truth:
 
+| Dataset | Output Kafka Topic | DLQ Kafka Topic | Primary Dedupe Key | Total Columns | Contract Document |
+|---|---|---|---|---|---|
+| **PaySim** | `financial_features_paysim` | `financial_transactions_paysim_dlq` | `txn_id` (SHA-256 string) | 42 | [`member3_streaming/MEMBER3_OUTPUT_CONTRACT.md`](MEMBER3_OUTPUT_CONTRACT.md) |
+| **IEEE-CIS** | `financial_features_ieee` | `financial_transactions_ieee_dlq` | `TransactionID` (int) | 483 | [`member3_streaming/MEMBER3_IEEE_OUTPUT_CONTRACT.md`](MEMBER3_IEEE_OUTPUT_CONTRACT.md) |
+
+---
+
+## 2. Startup Commands for Feature Engines
+
+Run the PySpark Structured Streaming engines from the repository root:
+
+### PaySim Feature Engine:
 ```bash
 python -m member3_streaming.consumer_paysim \
     --bootstrap-servers localhost:9092 \
@@ -24,46 +30,65 @@ python -m member3_streaming.consumer_paysim \
     --checkpoint-location member3_streaming/checkpoints/paysim
 ```
 
+### IEEE-CIS Feature Engine:
+```bash
+python -m member3_streaming.consumer_ieee \
+    --bootstrap-servers localhost:9092 \
+    --input-topic financial_transactions_ieee \
+    --output-topic financial_features_ieee \
+    --dlq-topic financial_transactions_ieee_dlq \
+    --checkpoint-location member3_streaming/checkpoints/ieee_stateful
+```
+
 ---
 
-## 3. How to Consume: 15-Line Python Consumer (with `txn_id` Deduplication)
+## 3. Mandatory Downstream Deduplication Requirement
 
-Downstream consumers (model serving, feature store ingest, inference pipelines) must implement idempotent deduplication on `txn_id`:
+Because Spark Structured Streaming operates under **at-least-once delivery**, unexpected driver/executor restarts may replay uncommitted batches, re-emitting records. Replayed duplicate records have been verified to be **100% byte-identical**.
 
+Downstream consumers (model scoring, feature ingestion, monitoring) **MUST deduplicate incoming stream records** using:
+- `txn_id` for PaySim
+- `TransactionID` for IEEE-CIS
+
+### Example Python Consumer with Deduplication:
 ```python
 import json
 from kafka import KafkaConsumer
 
+# Example consumer for PaySim (substitute 'financial_features_ieee' and 'TransactionID' for IEEE)
 consumer = KafkaConsumer(
     "financial_features_paysim",
     bootstrap_servers=["localhost:9092"],
     auto_offset_reset="earliest",
     enable_auto_commit=True,
-    group_id="member4_inference_consumer",
+    group_id="member4_inference_group",
 )
-seen_txn_ids = set()
+
+seen_ids = set()
 for msg in consumer:
     record = json.loads(msg.value.decode("utf-8"))
-    txn_id = record["txn_id"]
-    if txn_id in seen_txn_ids:
+    key = record["txn_id"]  # or record["TransactionID"] for IEEE
+    if key in seen_ids:
         continue
-    seen_txn_ids.add(txn_id)
-    # Feed record directly to real-time inference model
-    print(f"Inference record: {txn_id} (step={record['step']}, amount={record['amount']})")
+    seen_ids.add(key)
+    
+    # Pass record to real-time inference model
+    print(f"Scoring event: key={key}")
 ```
 
 ---
 
 ## 4. Operational Guarantees & Known Limitations
 
-- **Guarantees**:
-  - **At-Least-Once Delivery**: No transactions are lost during stream execution.
-  - **Feature Parity**: Stateful cumulative aggregates and trailing 24h/168h windows match Member 2's batch ground truth with **0 mismatches** across all 41 compared columns.
-  - **Deterministic Duplicates**: Any duplicate records re-emitted due to crash recovery replay are 100% byte-identical.
-  - **Dead-Letter Queue (DLQ)**: Malformed JSON, bad types, negative amounts, invalid steps, and late out-of-order events are routed to `financial_transactions_paysim_dlq` without interrupting active streaming queries.
-- **Known Limitations**:
-  - **Duplicate Mitigation**: Downstream systems must deduplicate on `txn_id`.
-  - **Crash Recovery Workaround**: In Spark 4.1.1 NullPointerException in KafkaMicroBatchStream.metrics when replaying an uncommitted batch (upstream ticket not verified), an abrupt mid-batch hard crash (`taskkill /F /T`) can leave an uncommitted trailing offset file in checkpoint storage (`offsets/N` without matching `commits/N`). Restarting requires rolling back the uncommitted trailing offset before starting the consumer.
+### What is Guaranteed:
+1. **At-Least-Once Delivery**: No transactions are lost during stream execution.
+2. **Feature Parity**: Stateful cumulative aggregates and trailing rolling windows match Member 2's batch ground truth with **0 mismatches** across all tested features.
+3. **Byte-Identical Duplicates**: Any duplicate records re-emitted due to crash recovery replay are 100% byte-identical.
+4. **Dead-Letter Queue (DLQ)**: Malformed JSON, bad types, negative amounts, out-of-bounds fields, and out-of-order late events are safely diverted to the respective DLQ topic without stopping active streaming queries.
+
+### Known Limitations:
+1. **Consumer Deduplication**: Consumers must filter duplicate keys.
+2. **Crash Recovery Operator Workaround**: In Spark 4.1.1, a mid-batch hard crash (`taskkill /F /T`) leaves an orphan uncommitted offset file in the checkpoint (`offsets/N` without matching `commits/N`). Replaying this uncommitted batch triggers a `KafkaMicroBatchStream.metrics` NullPointerException (upstream ticket not verified). The verified operational procedure is to delete the orphan `offsets/N` file before restarting, allowing Spark to cleanly re-read from committed offset `N-1`.
 
 ---
 
@@ -72,24 +97,31 @@ for msg in consumer:
 ```text
 Hi Member 4,
 
-The PaySim real-time streaming feature pipeline (Member 3) is live and ready for downstream integration.
+The real-time streaming feature pipelines for both PaySim and IEEE-CIS are implemented and ready for integration.
 
-- Output Kafka Topic: financial_features_paysim
-- Output Contract: member3_streaming/MEMBER3_OUTPUT_CONTRACT.md
-- Schema: 42 columns (full Tier A schema strictly matching data/features/paysim_features.parquet with 0 mismatches)
-- Partitioning / Key: txn_id (deterministic SHA-256 hash)
+1. PaySim Pipeline:
+   - Output Topic: financial_features_paysim
+   - Output Contract: member3_streaming/MEMBER3_OUTPUT_CONTRACT.md
+   - Schema: 42 columns (identical to data/features/paysim_features.parquet)
+   - Dedupe Key: txn_id
 
-What is Guaranteed:
-1. At-least-once delivery with zero data loss.
-2. 100% feature numerical and null parity against Member 2's batch feature store.
-3. Byte-identical duplicates upon crash replay.
-4. Malformed/late records safely diverted to financial_transactions_paysim_dlq.
+2. IEEE-CIS Pipeline:
+   - Output Topic: financial_features_ieee
+   - Output Contract: member3_streaming/MEMBER3_IEEE_OUTPUT_CONTRACT.md
+   - Schema: 483 columns (identical to data/features/ieee_features.parquet)
+   - Dedupe Key: TransactionID
 
-What is NOT Guaranteed:
-- Zero-duplicate exactly-once delivery without consumer-side deduplication. You MUST deduplicate incoming records using `txn_id`.
+Key Guarantees:
+- At-least-once delivery with zero data loss.
+- 100% numerical and null parity against Member 2's batch feature tables.
+- Byte-identical duplicate messages upon crash recovery.
+- Full validation guards and DLQ routing.
+
+Requirement:
+Downstream scoring consumers must deduplicate incoming records on txn_id (PaySim) or TransactionID (IEEE).
 
 Integration Question:
-Do you want to consume directly from this Kafka topic (`financial_features_paysim`), or do you need a different sink destination (e.g., Parquet / Delta Lake directory, or gRPC endpoint)?
+Are Kafka topics (financial_features_paysim and financial_features_ieee) your preferred ingestion sink for model inference, or do you require an alternative destination (such as Parquet directory, Delta Lake table, or gRPC stream)?
 
-(Default decision: Kafka topic is the primary integration sink unless you request otherwise.)
+(Current default: Kafka topics pending your confirmation.)
 ```
