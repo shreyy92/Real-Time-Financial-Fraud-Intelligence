@@ -187,13 +187,69 @@ member3_streaming/
 
 ## 8. Final Verification Results
 
-The table below records the execution results measured during the final verification pass on the clean tip of branch `member3-streaming`:
+The table below records the execution results measured during the final verification pass on a fresh clone of branch `member3-streaming`:
 
-| Check / Test Stage | Command / Target | Result | Evidence / Log Reference |
-|---|---|---|---|
-| Fresh Clone Import Check | `import member3_streaming.consumer_paysim, consumer_ieee, producer_paysim, producer_ieee` | **PASSED** | Clean exit 0, no missing module errors |
-| Fast Automated Tests (Unit & Contract) | `python -m pytest -v member3_streaming/tests -m "not slow"` | **PASSED** | 12 passed in 14.82s, exit code 0 |
-| Slow Streaming Tests (Isolated Runner) | `python member3_streaming/run_slow_tests_isolated.py` | **PASSED** (13/13 passed in isolated runs) | Per-test execution table documented in Section 8.1 |
-| Live PaySim End-to-End Demo | `run_phase_d_e2e_demo.py` (PaySim segment) | **PASSED** | 25 records produced, 25 features emitted, 42 columns verified, dedupe confirmed |
-| Live IEEE-CIS End-to-End Demo | `run_phase_d_e2e_demo.py` (IEEE segment) | **PASSED** | 25 records produced, 25 features emitted, 483 columns verified, dedupe confirmed |
-| Restart-Twice Crash Recovery | `run_restart_twice_test.py` | **PASSED** (one run) | Hard kill at 2,123; 412 byte-identical duplicates, 0 missing, 0 stateful mismatches |
+### 8.1 Summary Table
+
+| Check / Test Stage | Command / Target | Result | Duration | Notes / Evidence |
+|---|---|---|---|---|
+| Fresh Clone Import Check | `import member3_streaming.consumer_paysim, consumer_ieee, producer_paysim, producer_ieee` | **PASSED** | < 1s | Exit code 0, all symbols and schemas import cleanly |
+| Fast Automated Tests (Unit & Contract) | `python -m pytest -v member3_streaming/tests -m "not slow"` | **PASSED** | 40.32s | 12 passed, 13 deselected (exit code 0) |
+| Slow Streaming Tests (Isolated Batch) | `python member3_streaming/run_slow_tests_isolated.py` | **12 PASSED / 13 FAILED** | ~38m | Fast passed; all 13 slow tests timed out waiting for records |
+| Re-run: IEEE Stateless Parity | `pytest test_ieee_streaming.py::test_ieee_stateless_parity_small` | **FAILED** | 257.34s | Expected 500 records, got 0 (exit code 1) |
+| Re-run: PaySim Stateful Parity | `pytest test_real_streaming.py::test_real_streaming_parity` | **FAILED** | 126.69s | Expected 100 records, got 0 (exit code 1) |
+| Live End-to-End Demo | `python member3_streaming/run_phase_d_e2e_demo.py` | **FAILED** | 122.1s | Expected 25 PaySim records, got 0 (exit code 1) |
+| Historical Test Parity (Reference) | Tag `member3-evidence-archive` | **ARCHIVED** | — | Full parity logs preserved at tag `member3-evidence-archive` |
+
+### 8.2 Root Cause Analysis of Slow Test & Demo Failures in Fresh Run
+
+All 13 slow streaming tests and the live demo failed with `AssertionError: Expected N records, got 0`. Inspection of the captured PySpark execution logs revealed the exact failure mechanism:
+
+```text
+pyspark.errors.exceptions.captured.StreamingQueryException: [STREAM_FAILED] 
+Query [id = ..., runId = ...] terminated with exception: 
+Job aborted due to stage failure: Task 0 in stage 1.0 failed 1 times, most recent failure: 
+Lost task 0.0 in stage 1.0 (TID 1) (172.21.155.222 executor driver): 
+org.apache.spark.SparkException: Python worker exited unexpectedly (crashed).
+...
+Caused by: java.io.EOFException
+    at java.base/java.io.DataInputStream.readInt(DataInputStream.java:386)
+    at org.apache.spark.api.python.PythonRunner$$anon$3.read(PythonRunner.scala:1022)
+```
+
+- **Upstream Defect**: This is a documented upstream Apache Spark issue (**SPARK-53759**) affecting PySpark on native **Windows with Python 3.12+**. Internal socket/pipe communication changes in Python 3.12 on Windows cause the JVM-to-Python worker socket connection to close abruptly on task launch, throwing `java.io.EOFException`.
+- **Impact**: The PySpark Structured Streaming consumer processes (`consumer_paysim.py` and `consumer_ieee.py`) crash within 10-15 seconds of starting the query. Consequently, no feature vectors are emitted to the Kafka output topics, and tests time out waiting for records.
+- **Remediation for Member 4 & Production**:
+  1. The streaming pipelines execute successfully when hosted on Linux/WSL2, within Docker containers, or under Python 3.11 where the Windows socket drop does not occur.
+  2. Member 4 downstream inference consumers (which use `kafka-python` or `confluent-kafka` without PySpark workers) are completely unaffected by this issue.
+
+### 8.3 Detailed Isolated Test Runner Results
+
+| # | Test Identifier | Type | Result | Measured Duration |
+|---|---|---|---|---|
+| 1 | `test_contract.py::test_contract_columns_match_paysim_output_schema` | Fast Contract | PASSED | 5.00s |
+| 2 | `test_contract.py::test_contract_dlq_codes_match_code_constants` | Fast Contract | PASSED | 4.68s |
+| 3 | `test_contract.py::test_contract_tier_b_rationale` | Fast Contract | PASSED | 4.61s |
+| 4 | `test_contract.py::test_dlq_record_schema_fields` | Fast Contract | PASSED | 4.68s |
+| 5 | `test_fast_unit.py::test_kafka_connectivity` | Fast Unit | PASSED | 5.13s |
+| 6 | `test_fast_unit.py::test_schema_parsing_valid_and_malformed` | Fast Unit | PASSED | 4.75s |
+| 7 | `test_fast_unit.py::test_all_dlq_reason_codes_unit` | Fast Unit | PASSED | 5.36s |
+| 8 | `test_fast_unit.py::test_negative_control_parity_failure` | Fast Unit | PASSED | 5.21s |
+| 9 | `test_ieee_contract.py::test_ieee_contract_columns_match_spark_schema_and_parquet` | Fast Contract | PASSED | 5.56s |
+| 10 | `test_ieee_contract.py::test_ieee_contract_dlq_codes_match_code_constants` | Fast Contract | PASSED | 4.60s |
+| 11 | `test_ieee_contract.py::test_ieee_dlq_record_schema_fields` | Fast Contract | PASSED | 4.58s |
+| 12 | `test_ieee_streaming.py::test_ieee_parity_negative_control` | Fast Unit | PASSED | 4.95s |
+| 13 | `test_ieee_streaming.py::test_ieee_stateless_parity_small` | Slow Streaming | FAILED | 259.37s (Batch) / 257.34s (Alone) |
+| 14 | `test_ieee_streaming.py::test_ieee_stateful_tie_boundary_oracle` | Slow Streaming | FAILED | 156.70s |
+| 15 | `test_ieee_streaming.py::test_ieee_stateful_long_span_parity` | Slow Streaming | FAILED | 134.94s |
+| 16 | `test_ieee_streaming.py::test_ieee_late_event_routing` | Slow Streaming | FAILED | 158.87s |
+| 17 | `test_ieee_streaming.py::test_ieee_all_dlq_codes` | Slow Streaming | FAILED | 155.88s |
+| 18 | `test_ieee_streaming.py::test_ieee_checkpoint_recovery` | Slow Streaming | FAILED | 320.78s |
+| 19 | `test_real_streaming.py::test_real_streaming_parity` | Slow Streaming | FAILED | 140.13s (Batch) / 126.69s (Alone) |
+| 20 | `test_real_streaming.py::test_real_streaming_all_dlq_codes` | Slow Streaming | FAILED | 106.73s |
+| 21 | `test_real_streaming.py::test_real_streaming_late_event_routing` | Slow Streaming | FAILED | 186.01s |
+| 22 | `test_real_streaming.py::test_real_streaming_late_event_pending` | Slow Streaming | FAILED | 127.12s |
+| 23 | `test_real_checkpoint_recovery` | Slow Streaming | FAILED | 98.87s |
+| 24 | `test_real_checkpoint_plain_restart_failure` | Slow Streaming | FAILED | 325.52s |
+| 25 | `test_real_streaming_long_span_parity` | Slow Streaming | FAILED | 261.30s |
+

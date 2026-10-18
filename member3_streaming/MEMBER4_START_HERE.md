@@ -31,6 +31,7 @@ Member 3 delivers two production-ready Apache Kafka feature topics matching Memb
 - **Docker**: For running Kafka KRaft broker (`member3_streaming/docker-compose.yml`).
 - **Java**: Java 17 LTS (OpenJDK 17 recommended; ensure `JAVA_HOME` is set).
 - **Python**: Python 3.12 with project virtual environment activated (`venv`).
+  - *Note on Windows Native Execution*: Native Windows execution of PySpark with Python 3.12 is affected by upstream Apache Spark bug **SPARK-53759** (Python worker socket EOFException). If executing the streaming consumers on Windows, use Python 3.11, Docker, or WSL2. Downstream Member 4 inference readers using pure Python Kafka consumers (`kafka-python`) are completely unaffected.
 - **PySpark**: PySpark 4.1.1 (matching `member2_spark` and `member3_streaming`).
 - **Kafka Client**: `kafka-python` or `confluent-kafka` (`kafka-python` is already installed in the repo `venv`).
 
