@@ -1,6 +1,0 @@
-=== IEEE Output Schema vs Ground Truth Parquet Check ===
-Parquet column count: 483
-Spark column count:   483
-Column name symmetric diff: set()
-Order mismatches: 0
-Result: 0 mismatches. Exact 1:1 match in names and order.

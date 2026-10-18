@@ -1,5 +1,7 @@
 # Merge Request: Member 3 Real-Time Streaming Feature Store
 
+> **Historical Evidence Archive:** Full raw execution logs, benchmark text outputs, and prior phase reports are archived at git tag `member3-evidence-archive`. Retrieve evidence files with: `git show member3-evidence-archive:<path>`.
+
 ## 1. Summary of Deliverables
 This Merge Request delivers the complete production-grade PySpark Structured Streaming and Kafka feature engineering pipelines for **Member 3** (Real-Time Financial Fraud Intelligence system).
 
@@ -19,10 +21,10 @@ Key components delivered:
 4. **State Management & Checkpointing**:
    - RocksDB State Store (`RocksDBStateStoreProvider`, format v5) for scalable off-heap state management.
    - Byte-identical duplicate recovery after mid-batch crash (`dup_count > 0` verified on both pipelines).
-   - Verified restart-twice crash recovery without file edits for IEEE stateful (`PDG_restart_twice.txt`); documented Operator Workaround rollback for PaySim.
+   - Verified restart-twice crash recovery without file edits for IEEE stateful (`git show member3-evidence-archive:member3_streaming/reports/raw/PDG_restart_twice.txt`); documented Operator Workaround rollback for PaySim.
 5. **Downstream Integration & Handoff**:
    - Complete reference deduplicating consumer (`example_consumer_member4.py`).
-   - Detailed output contracts (`MEMBER3_OUTPUT_CONTRACT.md`, `MEMBER3_IEEE_OUTPUT_CONTRACT.md`) and handoff guide (`HANDOFF_MEMBER4.md`).
+   - Detailed output contracts (`MEMBER3_OUTPUT_CONTRACT.md`, `MEMBER3_IEEE_OUTPUT_CONTRACT.md`) and handoff guide (`MEMBER4_START_HERE.md`).
 6. **Automated Test Suite**:
    - 25 automated tests across contract drift, fast unit, and real Kafka/Spark streaming integration suites.
 
@@ -35,10 +37,10 @@ Key components delivered:
 - `member3_streaming/producer_ieee.py`: Streaming producer for IEEE-CIS.
 - `member3_streaming/ieee_raw_schema.py` & `ieee_output_schema.py`: IEEE input and 483-col output schema definitions.
 - `member3_streaming/MEMBER3_OUTPUT_CONTRACT.md` & `MEMBER3_IEEE_OUTPUT_CONTRACT.md`: Output specifications and column schemas.
+- `member3_streaming/MEMBER3_WORK_SUMMARY.md`: Comprehensive engineering record, architecture, design decisions, and verification.
+- `member3_streaming/MEMBER4_START_HERE.md`: Self-contained onboarding guide and integration handbook for Member 4.
 - `member3_streaming/example_consumer_member4.py`: Reference consumer implementation for downstream services.
 - `member3_streaming/README.md`: Architecture diagram, startup instructions, rollback guide, and limitations.
-- `member3_streaming/PROGRESS.md`: Complete Phase ledger tracking Phases A through D.
-- `member3_streaming/reports/`: Detailed verification reports (`PA_report.md`, `PB_report.md`, `PC_report.md`, `PD_report.md`, `FINAL_SUMMARY.md`) and raw logs in `raw/`.
 - `member3_streaming/tests/`: 25 automated tests covering contracts, schemas, DLQ routing, parity, and checkpoint recovery.
 
 ---
@@ -64,10 +66,10 @@ pytest member3_streaming/tests/ -v --durations=0
 
 ## 4. Test Evidence
 - **Automated Test Suite**: Fast tests pass reliably. The streaming tests pass when run alone, but runs on Windows are flaky (BlockManager NPE or timeouts, cause unverified). Observed fresh-clone results: continuous runs 6 failed/19 passed and 1 failed/24 passed; isolated run with 60 s cooldown 2 failed/23 passed; working copy continuous 25 passed (once). The failing test differs between runs. `test_real_streaming_late_event_routing` failed in 3 of 4 fresh-clone runs; cause unverified (possibly test timing).
-- **End-to-End Demo**: Clean run for PaySim (25 records, 42 cols) and IEEE (25 records, 483 cols) with downstream deduplication (`reports/raw/PD_e2e_demo.txt`).
-- **Checkpoint Crash Recovery**: Verified restart-twice recovery without file edits on IEEE stateful (412 byte-identical duplicates, 0 missing, 0 mismatches; `reports/raw/PDG_restart_twice.txt`). Documented operator rollback workaround for PaySim.
-- **Negative Controls**: Proven failure detection on corrupted feature values (`reports/raw/PC_negative_controls.txt`).
-- **Fresh Clone Import**: Clean import verified without missing dependencies (`reports/raw/PD_fresh_clone_pytest.txt`).
+- **End-to-End Demo**: Clean run for PaySim (25 records, 42 cols) and IEEE (25 records, 483 cols) with downstream deduplication (`git show member3-evidence-archive:member3_streaming/reports/raw/PD_e2e_demo.txt`).
+- **Checkpoint Crash Recovery**: Verified restart-twice recovery without file edits on IEEE stateful (412 byte-identical duplicates, 0 missing, 0 mismatches; `git show member3-evidence-archive:member3_streaming/reports/raw/PDG_restart_twice.txt`). Documented operator rollback workaround for PaySim.
+- **Negative Controls**: Proven failure detection on corrupted feature values (`git show member3-evidence-archive:member3_streaming/reports/raw/PC_negative_controls.txt`).
+- **Fresh Clone Import**: Clean import verified without missing dependencies (`git show member3-evidence-archive:member3_streaming/reports/raw/PD_fresh_clone_pytest.txt`).
 
 ---
 
@@ -75,7 +77,7 @@ pytest member3_streaming/tests/ -v --durations=0
 1. **Micro-Batch Barrier Reordering**: Events arriving within a single micro-batch are sorted ascending by timestamp/step inside the state function; intra-batch out-of-order events are reordered rather than rejected as `LATE_EVENT`.
 2. **Spark 4.1.1 Crash Recovery Replay NPE**: Hard kills mid-batch leave an uncommitted offset file triggering a `KafkaMicroBatchStream.metrics` NPE on unassisted single restart; on IEEE stateful, restart-twice recovers with no file edits (unattended recovery requires a process supervisor; PaySim restart-twice is untested, operator rollback documented).
 3. **Windows Test Suite Flakiness**: Fast tests pass reliably. The streaming tests pass when run alone, but runs on Windows are flaky (BlockManager NPE or timeouts, cause unverified). Observed fresh-clone results: continuous runs 6 failed/19 passed and 1 failed/24 passed; isolated run with 60 s cooldown 2 failed/23 passed; working copy continuous 25 passed (once). The failing test differs between runs. `test_real_streaming_late_event_routing` failed in 3 of 4 fresh-clone runs; cause unverified (possibly test timing).
-4. **Member 4 Sink Status**: Integration interfaces and deduplicating downstream consumers are fully implemented and demonstrated in `member3_streaming/example_consumer_member4.py` and `HANDOFF_MEMBER4.md`. However, confirmation from the downstream modeling team regarding final production sinks remains **unanswered as of 2026-10-17**.
+4. **Member 4 Sink Status**: Integration interfaces and deduplicating downstream consumers are fully implemented and demonstrated in `member3_streaming/example_consumer_member4.py` and `MEMBER4_START_HERE.md`. However, confirmation from the downstream modeling team regarding final production sinks remains **unanswered as of 2026-10-18**.
 
 ---
 
@@ -85,4 +87,4 @@ pytest member3_streaming/tests/ -v --durations=0
 - [ ] Real Kafka and real PySpark queries used for all streaming verifications; no mocks.
 - [ ] All output columns adhere to documented schemas (42 cols PaySim, 483 cols IEEE).
 - [ ] Checkpoint crash recovery produces byte-identical duplicates deduplicated downstream.
-- [ ] Raw execution logs saved in `member3_streaming/reports/raw/` supporting every claim.
+- [ ] Raw execution logs saved in git tag `member3-evidence-archive` supporting every claim.

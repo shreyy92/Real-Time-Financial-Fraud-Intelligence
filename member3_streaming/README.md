@@ -1,5 +1,7 @@
 # Member 3: Real-Time Streaming Feature Store (PaySim & IEEE-CIS)
 
+> **Historical Evidence Archive:** Full raw execution logs, benchmark text outputs, and prior phase reports are archived at git tag `member3-evidence-archive`. Retrieve evidence files with: `git show member3-evidence-archive:<path>`.
+
 Production-grade PySpark Structured Streaming engines and Kafka streaming pipelines for real-time transaction feature engineering on both the PaySim and IEEE-CIS datasets.
 
 ---
@@ -150,7 +152,7 @@ Malformed, invalid, or out-of-order events are routed to the respective DLQ topi
 
 ### 6.1 IEEE Stateful Crash Recovery (Restart-Twice, No File Edits)
 - After a hard crash mid-batch, restart the consumer; the first restart completes the interrupted batch and then exits non-zero with the Spark 4.1.1 `KafkaMicroBatchStream.metrics` NPE; restart it again and it continues normally. No file edits.
-- **Evidence:** `reports/raw/PDG_restart_twice.txt` (IEEE stateful, one run, kill at 2,123, 412 byte-identical duplicates, 0 missing, 0 stateful mismatches).
+- **Evidence:** `git show member3-evidence-archive:member3_streaming/reports/raw/PDG_restart_twice.txt` (IEEE stateful, one run, kill at 2,123, 412 byte-identical duplicates, 0 missing, 0 stateful mismatches).
 - **Supervisor Requirement:** Unattended recovery requires a supervisor that restarts the process on a non-zero exit; this was not built or tested.
 - **Scope & Limitations:** Verified on IEEE stateful only, one run; PaySim restart-twice is UNTESTED (contract still documents the PaySim operator workaround). Duplicates up to the in-flight batch size are expected; downstream consumers must deduplicate on `TransactionID` (IEEE) or `txn_id` (PaySim).
 - **Legacy procedure (not needed for IEEE):** The previous manual operator rollback procedure (stopping consumer, deleting uncommitted `offsets/N` and `offsets/.N.crc`) is not needed. Note that deleting committed files is unsafe; **never delete `commits/`**.
@@ -171,7 +173,7 @@ Malformed, invalid, or out-of-order events are routed to the respective DLQ topi
 1. **Micro-Batch Reordering**: Events arriving within a single micro-batch are sorted ascending by timestamp/step inside the state function, meaning intra-batch out-of-order events are absorbed and reordered, not rejected as `LATE_EVENT`.
 2. **Spark 4.1.1 Mid-Batch Replay Crash**: Hard-killing a stateful consumer mid-batch leaves an uncommitted offset file that triggers a `KafkaMicroBatchStream.metrics` NPE on unassisted single restart; on IEEE stateful, restart-twice recovers with no file edits (unattended recovery requires a process supervisor; PaySim restart-twice is untested, operator rollback documented).
 3. **Windows Test Suite Flakiness**: Fast tests pass reliably. The streaming tests pass when run alone, but runs on Windows are flaky (BlockManager NPE or timeouts, cause unverified). Observed fresh-clone results: continuous runs 6 failed/19 passed and 1 failed/24 passed; isolated run with 60 s cooldown 2 failed/23 passed; working copy continuous 25 passed (once). The failing test differs between runs. `test_real_streaming_late_event_routing` failed in 3 of 4 fresh-clone runs; cause unverified (possibly test timing).
-4. **Member 4 Sink Status**: Member 4 integration is fully drafted with downstream deduplication examples (`example_consumer_member4.py`), but downstream team confirmation of final production sinks remains unanswered as of 2026-10-17.
+4. **Member 4 Sink Status**: Member 4 integration is fully drafted with downstream deduplication examples (`example_consumer_member4.py`), but downstream team confirmation of final production sinks remains unanswered as of 2026-10-18.
 
 ---
 
@@ -179,30 +181,36 @@ Malformed, invalid, or out-of-order events are routed to the respective DLQ topi
 
 ```text
 member3_streaming/
-├── consumer_paysim.py                 # PaySim Spark Structured Streaming consumer
-├── consumer_ieee.py                   # IEEE-CIS Spark Structured Streaming consumer
+├── __init__.py                        # Package root
+├── docker-compose.yml                 # Single-node Apache Kafka (KRaft) broker
+├── create_topics.py                   # Automated Kafka topic provisioning
 ├── producer_paysim.py                 # PaySim streaming Kafka producer
 ├── producer_ieee.py                   # IEEE-CIS streaming Kafka producer
+├── produce_ieee_subset.py             # Deterministic subset producer for 15 long-span cards (used by restart-twice test)
+├── consumer_paysim.py                 # PaySim Spark Structured Streaming consumer (42 cols)
+├── consumer_ieee.py                   # IEEE-CIS Spark Structured Streaming consumer (483 cols)
 ├── ieee_raw_schema.py                 # Raw input schema for IEEE-CIS
 ├── ieee_output_schema.py              # Enriched 483-column output schema for IEEE-CIS
+├── example_consumer_member4.py        # Reference downstream deduplicating consumer
+├── python_worker.bat                  # Windows PySpark environment wrapper
 ├── MEMBER3_OUTPUT_CONTRACT.md         # 42-column PaySim output contract
 ├── MEMBER3_IEEE_OUTPUT_CONTRACT.md    # 483-column IEEE-CIS output contract
-├── example_consumer_member4.py        # Reference downstream deduplicating consumer
-├── HANDOFF_MEMBER4.md                 # Member 4 inference integration specification
-├── DECISIONS.md                       # Architectural decisions log
-├── PROGRESS.md                        # Phase completion ledger
+├── MEMBER3_WORK_SUMMARY.md            # Comprehensive summary of Member 3 work, architecture, & verification
+├── MEMBER4_START_HERE.md              # Quickstart and integration guide for Member 4 downstream modeling
+├── MERGE_REQUEST.md                   # Formal Merge Request documentation (kept for reference)
 ├── README.md                          # This documentation file
-├── reports/                           # Phase reports and final delivery summaries
-│   ├── PA_report.md                   # Phase A report (C07 & C08 repairs)
-│   ├── PB_report.md                   # Phase B report (C10 contract & doc corrections)
-│   ├── PC_report.md                   # Phase C report (C11 IEEE tests & crash recovery)
-│   ├── PD_report.md                   # Phase D report (C12 final verification & delivery)
-│   ├── FINAL_SUMMARY.md               # End-of-project roadmap cross-check summary
-│   └── raw/                           # Untruncated raw execution logs
+├── gen_ieee_output_schema.py          # Contract generator for IEEE schema
+├── generate_contract_table.py         # Contract generator for PaySim table
+├── generate_ieee_contract.py          # Contract generator for IEEE table
+├── run_phase_d_e2e_demo.py            # Demo script: live PaySim + IEEE 25-record pipeline demo (manual tool, not part of pytest)
+├── run_slow_tests_isolated.py         # Isolated test runner: runs each @pytest.mark.slow test with 60s cooldown (manual tool, not part of pytest)
+├── run_restart_twice_test.py          # Restart-twice reproducer: runs IEEE mid-batch hard kill and verifies recovery (manual tool, not part of pytest)
 └── tests/                             # Automated test suite (25 tests)
+    ├── __init__.py
+    ├── conftest.py                    # Ephemeral Kafka topic & checkpoint fixtures
     ├── test_contract.py               # PaySim contract & schema drift tests
-    ├── test_ieee_contract.py          # IEEE contract & schema drift tests
     ├── test_fast_unit.py              # Unit tests for DLQ codes & Kafka connectivity
-    ├── test_real_streaming.py         # PaySim streaming integration & recovery tests
-    └── test_ieee_streaming.py         # IEEE streaming integration & recovery tests
+    ├── test_ieee_contract.py          # IEEE-CIS contract & schema drift tests
+    ├── test_ieee_streaming.py         # IEEE-CIS streaming integration & recovery tests
+    └── test_real_streaming.py         # PaySim streaming integration & recovery tests
 ```

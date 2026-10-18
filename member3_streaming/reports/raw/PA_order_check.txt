@@ -1,7 +1,0 @@
-Full 590,540-Row Producer Order Check
-Dataset: data/processed/ieee_clean.parquet
-Total rows: 590540
-Mismatches between np.lexsort and pd.sort_values: 0
-TransactionDT monotonicity violations: 0
-Same-DT TransactionID order violations: 0
-Result: 0 mismatches, 100% strictly monotonic (TransactionDT, TransactionID).

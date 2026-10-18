@@ -1,5 +1,7 @@
 # Member 3 IEEE-CIS Output Contract & Specification
 
+> **Historical Evidence Archive:** Full raw execution logs, benchmark text outputs, and prior phase reports are archived at git tag `member3-evidence-archive`. Retrieve evidence files with: `git show member3-evidence-archive:<path>`.
+
 ## 1. Topic Topology & Infrastructure
 - **Input Topic:** `financial_transactions_ieee` (1 partition, key: `TransactionID`)
 - **Output Topic:** `financial_features_ieee` (1 partition, key: `TransactionID`)
@@ -61,7 +63,7 @@ DLQ records are published to `financial_transactions_ieee_dlq` with schema:
 - **State Store Backend:** RocksDB state store (`RocksDBStateStoreProvider`).
 - **Mid-Batch Crash Behavior & Restart-Twice Recovery (No File Edits):**
   After a hard crash mid-batch, restart the consumer; the first restart completes the interrupted batch and then exits non-zero with the Spark 4.1.1 `KafkaMicroBatchStream.metrics` NPE; restart it again and it continues normally. No file edits.
-  - **Evidence:** `reports/raw/PDG_restart_twice.txt` (IEEE stateful, one run, kill at 2,123, 412 byte-identical duplicates, 0 missing, 0 stateful mismatches).
+  - **Evidence:** `git show member3-evidence-archive:member3_streaming/reports/raw/PDG_restart_twice.txt` (IEEE stateful, one run, kill at 2,123, 412 byte-identical duplicates, 0 missing, 0 stateful mismatches).
   - **Supervisor Requirement:** Unattended recovery requires a supervisor that restarts the process on a non-zero exit; this was not built or tested.
   - **Scope & Limitations:** Verified on IEEE stateful only, one run; PaySim restart-twice is UNTESTED (PaySim contract `MEMBER3_OUTPUT_CONTRACT.md` still documents the PaySim operator workaround). Duplicates up to the in-flight batch size are expected; downstream consumers must deduplicate on `TransactionID`.
 - **Legacy procedure (not needed):**
