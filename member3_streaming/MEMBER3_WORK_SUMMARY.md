@@ -131,6 +131,7 @@ Correctness of Member 3 was established via direct numerical comparison against 
 ## 6. Honest Limitations & Known Issues
 
 1. **Windows Test Suite Flakiness**:
+   - Even with the pinned environment, the streaming tests are occasionally flaky on Windows (BlockManager NPE); run them one at a time with python member3_streaming/run_slow_tests_isolated.py.
    - Fast contract and unit tests pass.
    - Long-running streaming tests on Windows show intermittent flakiness when run back-to-back in a single pytest session (Netty socket exhaustion / BlockManager timeouts; exact root cause unverified).
    - *Measured runs in fresh clone*: continuous suite ran 19 passed / 6 failed, then 24 passed / 1 failed; isolated per-test runner with 60 s cooldown ran 23 passed / 2 failed. All tests pass when run individually.
@@ -199,7 +200,7 @@ The test suite has been executed across multiple environments and configurations
    - 13 Slow streaming tests: 0 passed / 13 failed. PySpark streaming queries crashed within 10-15s with `java.io.EOFException` (Python worker exited unexpectedly).
    - Live Demo: FAILED (PaySim consumer crashed with worker EOFException).
 5. **Interpreter Diagnosis Runs (Side-by-Side Isolation, 2026-10-18)**:
-   - Evaluated system interpreter (`C:\Users\akshi\AppData\Local\Programs\Python\Python312\python.exe`) vs repository virtual environment (`venv/Scripts/python.exe`).
+   - Evaluated system interpreter (Python 3.12.6, passing) vs repository virtual environment (`venv/Scripts/python.exe`).
    - System interpreter results:
      - `test_ieee_stateless_parity_small`: PASSED (84.68s)
      - `test_real_streaming_parity`: PASSED (54.23s)
@@ -246,10 +247,20 @@ The test suite has been executed across multiple environments and configurations
 | 25 | `test_real_streaming.py::test_real_streaming_long_span_parity` | Slow Streaming | PASSED | 94.31s | — |
 
 ### 8.3 Environment Findings & Consumer Invocations
-- When executing streaming consumers on native Windows with PySpark 4.1.1, execute using the system Python interpreter:
+- When executing streaming consumers on native Windows with PySpark 4.1.1, execute using the verified Python interpreter:
   ```bash
-  C:\Users\akshi\AppData\Local\Programs\Python\Python312\python.exe -m member3_streaming.consumer_paysim --bootstrap-servers localhost:9092
-  C:\Users\akshi\AppData\Local\Programs\Python\Python312\python.exe -m member3_streaming.consumer_ieee --bootstrap-servers localhost:9092
+  python -m member3_streaming.consumer_paysim --bootstrap-servers localhost:9092
+  python -m member3_streaming.consumer_ieee --bootstrap-servers localhost:9092
   ```
 - Downstream Member 4 inference readers using `kafka-python` do not invoke PySpark workers and run under either interpreter.
 - The underlying socket communication crash in the virtual environment is documented as UNVERIFIED.
+
+### 8.4 Evaluation of Pinned Virtual Environment (requirements.txt)
+- A fresh virtual environment was constructed strictly from `requirements.txt` (`pip install -r requirements.txt` with exact pins `pyspark==4.1.1`, `pyarrow==24.0.0`, `pandas==3.0.2`, `numpy==2.3.5`, `kafka-python==3.0.11`, `pytest==9.0.2`, `PyYAML==6.0.3`).
+- In a fresh clone of the current repository tip with a reset Kafka KRaft broker, the isolated tests and demo were executed using this new virtual environment:
+  - `test_ieee_stateless_parity_small`: FAILED (259.04s, Expected 500 records, got 0; worker socket crash `Connection reset by peer` / `EOFException`).
+  - `test_real_streaming_parity`: FAILED (127.42s, Expected 100 records, got 0; worker socket crash `Connection reset by peer` / `EOFException`).
+  - `test_real_streaming_late_event_routing`: FAILED (128.21s, Expected 100 records, got 0; worker socket crash `Connection reset by peer` / `EOFException`).
+  - `python member3_streaming/run_phase_d_e2e_demo.py`: FAILED (PaySim consumer crashed with worker EOFException; 0 records received).
+- **Behavioral Comparison**: The virtual environment built strictly from `requirements.txt` behaves like the old repository virtual environment (FAIL), and NOT like the system interpreter (PASS). This confirms that the failure is not driven by package version drift across dependencies, but by the Windows virtualenv worker execution context. The underlying root cause remains **UNVERIFIED**.
+

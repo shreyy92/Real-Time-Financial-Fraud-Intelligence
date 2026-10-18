@@ -30,15 +30,15 @@ Member 3 delivers two production-ready Apache Kafka feature topics matching Memb
 ### 2.1 Dependencies
 - **Docker**: For running Kafka KRaft broker (`member3_streaming/docker-compose.yml`).
 - **Java**: Java 17 LTS (OpenJDK 17 recommended; ensure `JAVA_HOME` is set).
-- **Python**: Python 3.12 (system interpreter or virtual environment).
-  - *Measured Interpreter Findings on Windows*: In empirical comparative testing on Windows (conducted 2026-10-18 across 4 distinct test/demo runs), running PySpark streaming workers with the repository virtual environment interpreter (`venv/Scripts/python.exe`) failed with worker socket crashes (`java.io.EOFException`). Running the streaming consumers with the system Python interpreter (`C:\Users\akshi\AppData\Local\Programs\Python\Python312\python.exe`) succeeded across all isolated parity tests and live end-to-end pipelines. While failure strictly follows the interpreter choice, the underlying socket-level root cause remains UNVERIFIED.
-  - *Action*: Run PySpark streaming consumers using the system Python interpreter:
+- **Python & Environment**: Python 3.12.
+  - Create the environment from `requirements.txt`:
     ```bash
-    C:\Users\akshi\AppData\Local\Programs\Python\Python312\python.exe -m member3_streaming.consumer_paysim --bootstrap-servers localhost:9092
+    pip install -r requirements.txt
     ```
-  - Downstream Member 4 inference readers using pure Python Kafka consumers (`kafka-python`) are completely unaffected and run under either interpreter.
+  - The streaming consumers failed under newer versions of pyarrow/pandas/numpy that we tried (see work summary section 8); the cause is UNVERIFIED.
+  - Downstream Member 4 inference readers using pure Python Kafka consumers (`kafka-python`) are completely unaffected.
 - **PySpark**: PySpark 4.1.1 (matching `member2_spark` and `member3_streaming`).
-- **Kafka Client**: `kafka-python` or `confluent-kafka` (`kafka-python` is already installed).
+- **Kafka Client**: `kafka-python` or `confluent-kafka` (`kafka-python` is specified in `requirements.txt`).
 
 ### 2.2 Datasets & Batch Parquet Ground Truth
 The `data/` directory is excluded from git via `.gitignore`. The streaming pipelines and validation require the following real data files:
@@ -92,11 +92,6 @@ python -m member3_streaming.consumer_paysim `
     --output-topic financial_features_paysim `
     --dlq-topic financial_transactions_paysim_dlq `
     --checkpoint-location member3_streaming/checkpoints/paysim_quickstart
-```
-
-*Windows native execution note:* If running on Windows, execute with the system Python interpreter:
-```bash
-C:\Users\akshi\AppData\Local\Programs\Python\Python312\python.exe -m member3_streaming.consumer_paysim --bootstrap-servers localhost:9092 --input-topic financial_transactions_paysim --output-topic financial_features_paysim --dlq-topic financial_transactions_paysim_dlq --checkpoint-location member3_streaming/checkpoints/paysim_quickstart
 ```
 
 ### Step 5: Read and Deduplicate Features
@@ -201,6 +196,8 @@ python -c "import json, kafka; c = kafka.KafkaConsumer('financial_features_paysi
   - If a hard crash occurs mid-batch on PaySim, delete the orphan uncommitted `offsets/N` and `offsets/.N.crc` (where `commits/N` does not exist), and restart. Never delete files in `commits/`. PaySim restart-twice is untested.
 - **Micro-Batch Reordering**:
   - Events arriving within a single micro-batch are sorted ascending by timestamp/step inside the state function, meaning intra-batch out-of-order events are absorbed and reordered, not rejected as `LATE_EVENT`.
+- **Windows Test Suite Flakiness**:
+  - Even with the pinned environment, the streaming tests are occasionally flaky on Windows (BlockManager NPE); run them one at a time with `python member3_streaming/run_slow_tests_isolated.py`.
 
 ---
 

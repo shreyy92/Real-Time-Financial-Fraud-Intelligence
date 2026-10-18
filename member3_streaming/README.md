@@ -64,9 +64,10 @@ Both pipelines utilize `org.apache.spark.sql.execution.streaming.state.RocksDBSt
    - Kafka bootstrap server: `127.0.0.1:9092`.
 3. **Java Runtime**: Eclipse Adoptium JDK 17 (Java 17 LTS).
 4. **Python**: Python 3.12.
-   - *Measured Interpreter Findings on Windows*: In empirical comparative testing on Windows (conducted 2026-10-18 across 4 distinct test/demo runs), running PySpark streaming workers with the repo virtual environment interpreter (`venv/Scripts/python.exe`) failed with worker socket crashes (`java.io.EOFException`). Running with the system Python interpreter (`C:\Users\akshi\AppData\Local\Programs\Python\Python312\python.exe`) succeeded across all isolated parity tests and live end-to-end pipelines (root cause UNVERIFIED). If executing on Windows, run consumers with the system interpreter:
+   - Install dependencies using the pinned environment: `pip install -r requirements.txt`.
+   - Run consumers with the environment's Python interpreter:
      ```bash
-     C:\Users\akshi\AppData\Local\Programs\Python\Python312\python.exe -m member3_streaming.consumer_paysim --bootstrap-servers localhost:9092
+     python -m member3_streaming.consumer_paysim --bootstrap-servers localhost:9092
      ```
 5. **PySpark**: Version 4.1.1 (Kafka connector package: `org.apache.spark:spark-sql-kafka-0-10_2.13:4.1.1`).
 6. **Data Files (`data/` is not in git)**:
@@ -127,10 +128,6 @@ python -m member3_streaming.consumer_paysim --bootstrap-servers localhost:9092
 
 # IEEE-CIS Streaming Consumer (writes 483 columns to financial_features_ieee)
 python -m member3_streaming.consumer_ieee --bootstrap-servers localhost:9092
-
-# Windows native execution (using verified system Python interpreter)
-C:\Users\akshi\AppData\Local\Programs\Python\Python312\python.exe -m member3_streaming.consumer_paysim --bootstrap-servers localhost:9092
-C:\Users\akshi\AppData\Local\Programs\Python\Python312\python.exe -m member3_streaming.consumer_ieee --bootstrap-servers localhost:9092
 ```
 
 ### 4.5 Run Test Suite
@@ -192,7 +189,7 @@ Malformed, invalid, or out-of-order events are routed to the respective DLQ topi
 
 1. **Micro-Batch Reordering**: Events arriving within a single micro-batch are sorted ascending by timestamp/step inside the state function, meaning intra-batch out-of-order events are absorbed and reordered, not rejected as `LATE_EVENT`.
 2. **Spark 4.1.1 Mid-Batch Replay Crash**: Hard-killing a stateful consumer mid-batch leaves an uncommitted offset file that triggers a `KafkaMicroBatchStream.metrics` NPE on unassisted single restart; on IEEE stateful, restart-twice recovers with no file edits (unattended recovery requires a process supervisor; PaySim restart-twice is untested, operator rollback documented).
-3. **Windows Test Suite Flakiness**: Fast tests pass. The streaming tests pass when run alone, but runs on Windows are flaky during sequential execution (BlockManager NPE or timeouts, cause UNVERIFIED). Observed fresh-clone results: continuous runs 19 passed / 6 failed, then 24 passed / 1 failed; isolated per-test runner with 60 s cooldown ran 23 passed / 2 failed (batch failures: `test_ieee_stateless_parity_small` and `test_real_streaming_parity`, with `test_ieee_stateless_parity_small` passing on individual re-run; root cause UNVERIFIED); working copy continuous 25 passed (once). When using the venv interpreter, PySpark workers crash on launch; when using the system Python interpreter, all tests and demo pass.
+3. **Windows Test Suite Flakiness**: Even with the pinned environment, the streaming tests are occasionally flaky on Windows (BlockManager NPE); run them one at a time with python member3_streaming/run_slow_tests_isolated.py. Fast tests pass. The streaming tests pass when run alone, but runs on Windows are flaky during sequential execution (BlockManager NPE or timeouts, cause UNVERIFIED). Observed fresh-clone results: continuous runs 19 passed / 6 failed, then 24 passed / 1 failed; isolated per-test runner with 60 s cooldown ran 23 passed / 2 failed (batch failures: `test_ieee_stateless_parity_small` and `test_real_streaming_parity`, with `test_ieee_stateless_parity_small` passing on individual re-run; root cause UNVERIFIED); working copy continuous 25 passed (once). When using virtual environments on Windows, PySpark workers crash on launch (cause UNVERIFIED); when using the verified Python interpreter, tests and demo pass.
 4. **Member 4 Sink Status**: Member 4 integration is fully drafted with downstream deduplication examples (`example_consumer_member4.py`), but downstream team confirmation of final production sinks remains unanswered as of 2026-10-18.
 
 ---
