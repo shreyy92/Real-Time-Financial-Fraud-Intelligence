@@ -31,12 +31,17 @@ Member 3 delivers two production-ready Apache Kafka feature topics matching Memb
 - **Docker**: For running Kafka KRaft broker (`member3_streaming/docker-compose.yml`).
 - **Java**: Java 17 LTS (OpenJDK 17 recommended; ensure `JAVA_HOME` is set).
 - **Python & Environment**: Python 3.12.
-  - Create the environment from `requirements.txt`:
+  - On Windows, run consumers and tests with a **NON-venv base Python 3.12 interpreter**.
+  - Install dependencies directly into the base interpreter:
     ```bash
-    pip install -r requirements.txt
+    python -m pip install -r requirements.txt
     ```
-  - The streaming consumers failed under newer versions of pyarrow/pandas/numpy that we tried (see work summary section 8); the cause is UNVERIFIED.
-  - Downstream Member 4 inference readers using pure Python Kafka consumers (`kafka-python`) are completely unaffected.
+  - Measured environment findings:
+    1. Both the repo virtual environment and a fresh virtual environment built strictly from `requirements.txt` failed on Windows (PySpark workers crashed on launch with `java.io.EOFException`, even on a trivial pandas UDF).
+    2. The base system interpreter with identical pinned versions passed all isolated tests and the live demo.
+    3. Package versions alone do not explain the failure; virtualenvs failed in our tests on Windows; Linux/WSL/Docker are untested by us.
+    4. The root cause remains UNVERIFIED.
+  - Downstream Member 4 inference readers using pure Python Kafka consumers (`kafka-python`) do not use PySpark workers and run under either environment.
 - **PySpark**: PySpark 4.1.1 (matching `member2_spark` and `member3_streaming`).
 - **Kafka Client**: `kafka-python` or `confluent-kafka` (`kafka-python` is specified in `requirements.txt`).
 

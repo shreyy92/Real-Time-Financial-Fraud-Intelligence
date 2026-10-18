@@ -64,8 +64,8 @@ Both pipelines utilize `org.apache.spark.sql.execution.streaming.state.RocksDBSt
    - Kafka bootstrap server: `127.0.0.1:9092`.
 3. **Java Runtime**: Eclipse Adoptium JDK 17 (Java 17 LTS).
 4. **Python**: Python 3.12.
-   - Install dependencies using the pinned environment: `pip install -r requirements.txt`.
-   - Run consumers with the environment's Python interpreter:
+   - On Windows, run consumers and tests with a **NON-venv base Python 3.12 interpreter** (install into base interpreter: `python -m pip install -r requirements.txt`). Virtual environments failed in our tests on Windows (worker crash); Linux/WSL/Docker are untested by us. Cause is UNVERIFIED.
+   - Run consumers with the base Python interpreter:
      ```bash
      python -m member3_streaming.consumer_paysim --bootstrap-servers localhost:9092
      ```
@@ -189,7 +189,7 @@ Malformed, invalid, or out-of-order events are routed to the respective DLQ topi
 
 1. **Micro-Batch Reordering**: Events arriving within a single micro-batch are sorted ascending by timestamp/step inside the state function, meaning intra-batch out-of-order events are absorbed and reordered, not rejected as `LATE_EVENT`.
 2. **Spark 4.1.1 Mid-Batch Replay Crash**: Hard-killing a stateful consumer mid-batch leaves an uncommitted offset file that triggers a `KafkaMicroBatchStream.metrics` NPE on unassisted single restart; on IEEE stateful, restart-twice recovers with no file edits (unattended recovery requires a process supervisor; PaySim restart-twice is untested, operator rollback documented).
-3. **Windows Test Suite Flakiness**: Even with the pinned environment, the streaming tests are occasionally flaky on Windows (BlockManager NPE); run them one at a time with python member3_streaming/run_slow_tests_isolated.py. Fast tests pass. The streaming tests pass when run alone, but runs on Windows are flaky during sequential execution (BlockManager NPE or timeouts, cause UNVERIFIED). Observed fresh-clone results: continuous runs 19 passed / 6 failed, then 24 passed / 1 failed; isolated per-test runner with 60 s cooldown ran 23 passed / 2 failed (batch failures: `test_ieee_stateless_parity_small` and `test_real_streaming_parity`, with `test_ieee_stateless_parity_small` passing on individual re-run; root cause UNVERIFIED); working copy continuous 25 passed (once). When using virtual environments on Windows, PySpark workers crash on launch (cause UNVERIFIED); when using the verified Python interpreter, tests and demo pass.
+3. **Windows Test Suite Flakiness**: Even with the pinned environment, the streaming tests are occasionally flaky on Windows (BlockManager NPE); run them one at a time with python member3_streaming/run_slow_tests_isolated.py. Fast tests pass. The streaming tests pass when run alone, but runs on Windows are flaky during sequential execution (BlockManager NPE or timeouts, cause UNVERIFIED). Observed fresh-clone results: continuous runs 19 passed / 6 failed, then 24 passed / 1 failed; isolated per-test runner with 60 s cooldown ran 23 passed / 2 failed (batch failures: `test_ieee_stateless_parity_small` and `test_real_streaming_parity`, with `test_ieee_stateless_parity_small` passing on individual re-run; root cause UNVERIFIED); working copy continuous 25 passed (once). In our testing on Windows, both the repo virtual environment and a venv built strictly from `requirements.txt` failed with worker socket crashes on launch (even on a trivial pandas UDF), whereas the base system interpreter with identical pinned versions passed all isolated tests and the live demo; package versions alone do not explain the failure (virtualenvs failed on Windows; Linux/WSL/Docker untested; cause UNVERIFIED).
 4. **Member 4 Sink Status**: Member 4 integration is fully drafted with downstream deduplication examples (`example_consumer_member4.py`), but downstream team confirmation of final production sinks remains unanswered as of 2026-10-18.
 
 ---
