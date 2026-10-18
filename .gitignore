@@ -48,6 +48,10 @@ env/
 # ============================================================
 scratch/
 output/*.parquet
+member3_streaming/checkpoints/
+member3_streaming/scratch_*
+member3_streaming/*.log
+member3_streaming/**/*.log
 
 # ============================================================
 # SECRETS / ENVIRONMENT VARIABLES
@@ -55,3 +59,9 @@ output/*.parquet
 .env
 .env.*
 !.env.example
+
+# ============================================================
+# AUDIT & MCP ARTIFACTS
+# ============================================================
+.playwright-mcp/
+checklist_report/
