@@ -131,7 +131,7 @@ Correctness of Member 3 was established via direct numerical comparison against 
 ## 6. Honest Limitations & Known Issues
 
 1. **Windows Test Suite Flakiness**:
-   - Fast contract and unit tests pass reliably.
+   - Fast contract and unit tests pass.
    - Long-running streaming tests on Windows show intermittent flakiness when run back-to-back in a single pytest session (Netty socket exhaustion / BlockManager timeouts; exact root cause unverified).
    - *Measured runs in fresh clone*: continuous suite ran 19 passed / 6 failed, then 24 passed / 1 failed; isolated per-test runner with 60 s cooldown ran 23 passed / 2 failed. All tests pass when run individually.
 2. **Spark 4.1.1 Micro-Batch Replay NPE**:
@@ -185,71 +185,71 @@ member3_streaming/
 
 ---
 
-## 8. Final Verification Results
+## 8. Verification History & Empirical Test Results
 
-The table below records the execution results measured during the final verification pass on a fresh clone of branch `member3-streaming`:
+### 8.1 Chronological Test Suite History
+The test suite has been executed across multiple environments and configurations:
+1. **Working Copy Continuous Run**: 25 passed / 0 failed (once).
+2. **Fresh Clone Continuous Runs**:
+   - Continuous Run 1: 19 passed / 6 failed.
+   - Continuous Run 2: 24 passed / 1 failed.
+3. **Fresh Clone Isolated Run (with 60s cooldown)**: 23 passed / 2 failed (historical run preserved at tag `member3-evidence-archive`).
+4. **Initial Verification Pass on Cleaned Tip (`venv` interpreter)**:
+   - 12 Fast tests: PASSED (40.32s, exit code 0).
+   - 13 Slow streaming tests: 0 passed / 13 failed. PySpark streaming queries crashed within 10-15s with `java.io.EOFException` (Python worker exited unexpectedly).
+   - Live Demo: FAILED (PaySim consumer crashed with worker EOFException).
+5. **Interpreter Diagnosis Runs (Side-by-Side Isolation, 2026-10-18)**:
+   - Evaluated system interpreter (`C:\Users\akshi\AppData\Local\Programs\Python\Python312\python.exe`) vs repository virtual environment (`venv/Scripts/python.exe`).
+   - System interpreter results:
+     - `test_ieee_stateless_parity_small`: PASSED (84.68s)
+     - `test_real_streaming_parity`: PASSED (54.23s)
+     - `test_real_streaming_late_event_routing`: PASSED (59.32s)
+     - `run_phase_d_e2e_demo.py`: PASSED (PaySim 25/25 records, 42 columns; IEEE 25/25 records, 483 columns)
+   - Virtual environment (`venv`) results:
+     - All 3 tests and live demo failed with `Python worker exited unexpectedly (crashed) ... Caused by: java.io.EOFException`.
+   - **Conclusion**: Failure follows the interpreter (system interpreter passes; venv interpreter fails). Specific worker IPC failure mechanism is UNVERIFIED.
+6. **Full Isolated Suite Re-Run with System Interpreter (2026-10-18)**:
+   - Executed `run_slow_tests_isolated.py` with system Python in fresh clone.
+   - Overall Result: 23 PASSED / 2 FAILED (12 fast passed, 11 slow passed, 2 slow failed in batch run).
+   - Re-run of failed tests alone:
+     - `test_ieee_stateless_parity_small`: PASSED (77.35s)
+     - `test_real_streaming_parity`: FAILED (139.50s, BlockManager NPE)
 
-### 8.1 Summary Table
+### 8.2 Full Re-Run Test Table (`run_slow_tests_isolated.py` with System Python)
 
-| Check / Test Stage | Command / Target | Result | Duration | Notes / Evidence |
-|---|---|---|---|---|
-| Fresh Clone Import Check | `import member3_streaming.consumer_paysim, consumer_ieee, producer_paysim, producer_ieee` | **PASSED** | < 1s | Exit code 0, all symbols and schemas import cleanly |
-| Fast Automated Tests (Unit & Contract) | `python -m pytest -v member3_streaming/tests -m "not slow"` | **PASSED** | 40.32s | 12 passed, 13 deselected (exit code 0) |
-| Slow Streaming Tests (Isolated Batch) | `python member3_streaming/run_slow_tests_isolated.py` | **12 PASSED / 13 FAILED** | ~38m | Fast passed; all 13 slow tests timed out waiting for records |
-| Re-run: IEEE Stateless Parity | `pytest test_ieee_streaming.py::test_ieee_stateless_parity_small` | **FAILED** | 257.34s | Expected 500 records, got 0 (exit code 1) |
-| Re-run: PaySim Stateful Parity | `pytest test_real_streaming.py::test_real_streaming_parity` | **FAILED** | 126.69s | Expected 100 records, got 0 (exit code 1) |
-| Live End-to-End Demo | `python member3_streaming/run_phase_d_e2e_demo.py` | **FAILED** | 122.1s | Expected 25 PaySim records, got 0 (exit code 1) |
-| Historical Test Parity (Reference) | Tag `member3-evidence-archive` | **ARCHIVED** | — | Full parity logs preserved at tag `member3-evidence-archive` |
+| # | Test Identifier | Type | Result | Measured Duration | Re-run Alone Result |
+|---|---|---|---|---|---|
+| 1 | `test_contract.py::test_contract_columns_match_paysim_output_schema` | Fast Contract | PASSED | 5.46s | — |
+| 2 | `test_contract.py::test_contract_dlq_codes_match_code_constants` | Fast Contract | PASSED | 5.08s | — |
+| 3 | `test_contract.py::test_contract_tier_b_rationale` | Fast Contract | PASSED | 5.22s | — |
+| 4 | `test_contract.py::test_dlq_record_schema_fields` | Fast Contract | PASSED | 5.36s | — |
+| 5 | `test_fast_unit.py::test_kafka_connectivity` | Fast Unit | PASSED | 5.55s | — |
+| 6 | `test_fast_unit.py::test_schema_parsing_valid_and_malformed` | Fast Unit | PASSED | 5.48s | — |
+| 7 | `test_fast_unit.py::test_all_dlq_reason_codes_unit` | Fast Unit | PASSED | 5.51s | — |
+| 8 | `test_fast_unit.py::test_negative_control_parity_failure` | Fast Unit | PASSED | 5.62s | — |
+| 9 | `test_ieee_contract.py::test_ieee_contract_columns_match_spark_schema_and_parquet` | Fast Contract | PASSED | 5.81s | — |
+| 10 | `test_ieee_contract.py::test_ieee_contract_dlq_codes_match_code_constants` | Fast Contract | PASSED | 4.98s | — |
+| 11 | `test_ieee_contract.py::test_ieee_dlq_record_schema_fields` | Fast Contract | PASSED | 5.06s | — |
+| 12 | `test_ieee_streaming.py::test_ieee_parity_negative_control` | Fast Unit | PASSED | 5.46s | — |
+| 13 | `test_ieee_streaming.py::test_ieee_stateless_parity_small` | Slow Streaming | FAILED | 261.24s | **PASSED** (77.35s) |
+| 14 | `test_ieee_streaming.py::test_ieee_stateful_tie_boundary_oracle` | Slow Streaming | PASSED | 55.33s | — |
+| 15 | `test_ieee_streaming.py::test_ieee_stateful_long_span_parity` | Slow Streaming | PASSED | 79.20s | — |
+| 16 | `test_ieee_streaming.py::test_ieee_late_event_routing` | Slow Streaming | PASSED | 58.30s | — |
+| 17 | `test_ieee_streaming.py::test_ieee_all_dlq_codes` | Slow Streaming | PASSED | 46.53s | — |
+| 18 | `test_ieee_streaming.py::test_ieee_checkpoint_recovery` | Slow Streaming | PASSED | 365.36s | — |
+| 19 | `test_real_streaming.py::test_real_streaming_parity` | Slow Streaming | FAILED | 141.64s | **FAILED** (139.50s, BlockManager NPE) |
+| 20 | `test_real_streaming.py::test_real_streaming_all_dlq_codes` | Slow Streaming | PASSED | 65.84s | — |
+| 21 | `test_real_streaming.py::test_real_streaming_late_event_routing` | Slow Streaming | PASSED | 67.57s | — |
+| 22 | `test_real_streaming.py::test_real_streaming_late_event_pending` | Slow Streaming | PASSED | 98.67s | — |
+| 23 | `test_real_checkpoint_recovery` | Slow Streaming | PASSED | 120.54s | — |
+| 24 | `test_real_checkpoint_plain_restart_failure` | Slow Streaming | PASSED | 122.41s | — |
+| 25 | `test_real_streaming.py::test_real_streaming_long_span_parity` | Slow Streaming | PASSED | 94.31s | — |
 
-### 8.2 Root Cause Analysis of Slow Test & Demo Failures in Fresh Run
-
-All 13 slow streaming tests and the live demo failed with `AssertionError: Expected N records, got 0`. Inspection of the captured PySpark execution logs revealed the exact failure mechanism:
-
-```text
-pyspark.errors.exceptions.captured.StreamingQueryException: [STREAM_FAILED] 
-Query [id = ..., runId = ...] terminated with exception: 
-Job aborted due to stage failure: Task 0 in stage 1.0 failed 1 times, most recent failure: 
-Lost task 0.0 in stage 1.0 (TID 1) (172.21.155.222 executor driver): 
-org.apache.spark.SparkException: Python worker exited unexpectedly (crashed).
-...
-Caused by: java.io.EOFException
-    at java.base/java.io.DataInputStream.readInt(DataInputStream.java:386)
-    at org.apache.spark.api.python.PythonRunner$$anon$3.read(PythonRunner.scala:1022)
-```
-
-- **Upstream Defect**: This is a documented upstream Apache Spark issue (**SPARK-53759**) affecting PySpark on native **Windows with Python 3.12+**. Internal socket/pipe communication changes in Python 3.12 on Windows cause the JVM-to-Python worker socket connection to close abruptly on task launch, throwing `java.io.EOFException`.
-- **Impact**: The PySpark Structured Streaming consumer processes (`consumer_paysim.py` and `consumer_ieee.py`) crash within 10-15 seconds of starting the query. Consequently, no feature vectors are emitted to the Kafka output topics, and tests time out waiting for records.
-- **Remediation for Member 4 & Production**:
-  1. The streaming pipelines execute successfully when hosted on Linux/WSL2, within Docker containers, or under Python 3.11 where the Windows socket drop does not occur.
-  2. Member 4 downstream inference consumers (which use `kafka-python` or `confluent-kafka` without PySpark workers) are completely unaffected by this issue.
-
-### 8.3 Detailed Isolated Test Runner Results
-
-| # | Test Identifier | Type | Result | Measured Duration |
-|---|---|---|---|---|
-| 1 | `test_contract.py::test_contract_columns_match_paysim_output_schema` | Fast Contract | PASSED | 5.00s |
-| 2 | `test_contract.py::test_contract_dlq_codes_match_code_constants` | Fast Contract | PASSED | 4.68s |
-| 3 | `test_contract.py::test_contract_tier_b_rationale` | Fast Contract | PASSED | 4.61s |
-| 4 | `test_contract.py::test_dlq_record_schema_fields` | Fast Contract | PASSED | 4.68s |
-| 5 | `test_fast_unit.py::test_kafka_connectivity` | Fast Unit | PASSED | 5.13s |
-| 6 | `test_fast_unit.py::test_schema_parsing_valid_and_malformed` | Fast Unit | PASSED | 4.75s |
-| 7 | `test_fast_unit.py::test_all_dlq_reason_codes_unit` | Fast Unit | PASSED | 5.36s |
-| 8 | `test_fast_unit.py::test_negative_control_parity_failure` | Fast Unit | PASSED | 5.21s |
-| 9 | `test_ieee_contract.py::test_ieee_contract_columns_match_spark_schema_and_parquet` | Fast Contract | PASSED | 5.56s |
-| 10 | `test_ieee_contract.py::test_ieee_contract_dlq_codes_match_code_constants` | Fast Contract | PASSED | 4.60s |
-| 11 | `test_ieee_contract.py::test_ieee_dlq_record_schema_fields` | Fast Contract | PASSED | 4.58s |
-| 12 | `test_ieee_streaming.py::test_ieee_parity_negative_control` | Fast Unit | PASSED | 4.95s |
-| 13 | `test_ieee_streaming.py::test_ieee_stateless_parity_small` | Slow Streaming | FAILED | 259.37s (Batch) / 257.34s (Alone) |
-| 14 | `test_ieee_streaming.py::test_ieee_stateful_tie_boundary_oracle` | Slow Streaming | FAILED | 156.70s |
-| 15 | `test_ieee_streaming.py::test_ieee_stateful_long_span_parity` | Slow Streaming | FAILED | 134.94s |
-| 16 | `test_ieee_streaming.py::test_ieee_late_event_routing` | Slow Streaming | FAILED | 158.87s |
-| 17 | `test_ieee_streaming.py::test_ieee_all_dlq_codes` | Slow Streaming | FAILED | 155.88s |
-| 18 | `test_ieee_streaming.py::test_ieee_checkpoint_recovery` | Slow Streaming | FAILED | 320.78s |
-| 19 | `test_real_streaming.py::test_real_streaming_parity` | Slow Streaming | FAILED | 140.13s (Batch) / 126.69s (Alone) |
-| 20 | `test_real_streaming.py::test_real_streaming_all_dlq_codes` | Slow Streaming | FAILED | 106.73s |
-| 21 | `test_real_streaming.py::test_real_streaming_late_event_routing` | Slow Streaming | FAILED | 186.01s |
-| 22 | `test_real_streaming.py::test_real_streaming_late_event_pending` | Slow Streaming | FAILED | 127.12s |
-| 23 | `test_real_checkpoint_recovery` | Slow Streaming | FAILED | 98.87s |
-| 24 | `test_real_checkpoint_plain_restart_failure` | Slow Streaming | FAILED | 325.52s |
-| 25 | `test_real_streaming_long_span_parity` | Slow Streaming | FAILED | 261.30s |
-
+### 8.3 Environment Findings & Consumer Invocations
+- When executing streaming consumers on native Windows with PySpark 4.1.1, execute using the system Python interpreter:
+  ```bash
+  C:\Users\akshi\AppData\Local\Programs\Python\Python312\python.exe -m member3_streaming.consumer_paysim --bootstrap-servers localhost:9092
+  C:\Users\akshi\AppData\Local\Programs\Python\Python312\python.exe -m member3_streaming.consumer_ieee --bootstrap-servers localhost:9092
+  ```
+- Downstream Member 4 inference readers using `kafka-python` do not invoke PySpark workers and run under either interpreter.
+- The underlying socket communication crash in the virtual environment is documented as UNVERIFIED.

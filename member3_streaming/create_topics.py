@@ -1,7 +1,14 @@
 import subprocess
 import sys
 
-TOPICS = ["financial_transactions_paysim", "financial_transactions_ieee"]
+TOPICS = [
+    "financial_transactions_paysim",
+    "financial_features_paysim",
+    "financial_transactions_paysim_dlq",
+    "financial_transactions_ieee",
+    "financial_features_ieee",
+    "financial_transactions_ieee_dlq",
+]
 
 def create_topics():
     for topic in TOPICS:
