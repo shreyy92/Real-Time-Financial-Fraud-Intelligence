@@ -64,10 +64,11 @@ def handle_train(args):
         y_valid,
         random_state=args.random_state,
         optimize_threshold=True,
+        class_weight_strategy=args.class_weight_strategy,
     )
 
     # Save fitted artifact
-    saved_path = trainer.save_artifact(model_dir=args.model_dir)
+    saved_path = trainer.save_artifact(model_dir=args.model_dir, filename_prefix=args.artifact_prefix)
     logger.info(f"Model artifact successfully saved at: {saved_path}")
     logger.info(f"Optimal Threshold (tuned on validation): {res['optimal_threshold']:.4f}")
     logger.info(f"Validation F1: {res['valid_metrics']['f1']:.4f}")
@@ -246,6 +247,17 @@ def main():
         type=int,
         default=None,
         help="Maximum messages to consume before stopping (useful for testing).",
+    )
+    parser.add_argument(
+        "--class-weight-strategy",
+        choices=["ratio", "sqrt_damping", "unweighted"],
+        default=None,
+        help="Class imbalance weighting strategy for LightGBM ('ratio', 'sqrt_damping', or 'unweighted').",
+    )
+    parser.add_argument(
+        "--artifact-prefix",
+        default=None,
+        help="Custom prefix for saved model artifact files (e.g. 'paysim_lightgbm_sqrt_weight').",
     )
     parser.add_argument(
         "--random-state",

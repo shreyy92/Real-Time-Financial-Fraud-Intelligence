@@ -124,7 +124,7 @@ class FraudScoringEngine:
         score_payload : Optional[Dict[str, Any]]
             Formatted scored alert dict if processed, or None if skipped/invalid.
         status : str
-            One of: 'SCORED', 'DUPLICATE', 'MALFORMED', 'MISSING_KEY', 'MISSING_FEATURES'
+            One of: 'SCORED', 'DUPLICATE', 'MALFORMED', 'MISSING_KEY', 'MISSING_FEATURES', 'INVALID_NUMERIC_FEATURE'
         """
         if not isinstance(raw_record, dict):
             return None, "MALFORMED"
@@ -150,7 +150,24 @@ class FraudScoringEngine:
             return None, "MISSING_FEATURES"
 
         # 4. Construct single-row DataFrame aligned strictly to training feature order
-        feature_dict = {f: [raw_record[f]] for f in self.expected_features}
+        feature_dict = {}
+        for f in self.expected_features:
+            val = raw_record[f]
+            if self.dataset == "paysim":
+                # For PaySim, all 32 Tier A features are numeric.
+                # JSON null / Python None must be represented as float NaN so pandas does not default to object dtype.
+                if val is None or (isinstance(val, float) and np.isnan(val)):
+                    val = np.nan
+                else:
+                    try:
+                        val = float(val)
+                    except (ValueError, TypeError):
+                        logger.warning(
+                            f"Record {key_val} feature '{f}' contains non-numeric value: {val!r}"
+                        )
+                        return None, "INVALID_NUMERIC_FEATURE"
+            feature_dict[f] = [val]
+
         df_row = pd.DataFrame(feature_dict)
 
         # 5. Model Inference (predict probability of fraud)

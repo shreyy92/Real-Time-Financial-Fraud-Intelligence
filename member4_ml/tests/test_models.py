@@ -193,3 +193,19 @@ def test_run_paysim_ablation(synthetic_paysim_df):
     assert "artifact_warning_and_explanation" in ablation
     assert "valid_metrics" in ablation["tier_a"]
     assert "valid_metrics" in ablation["tier_ab"]
+
+
+def test_class_weight_strategies(synthetic_paysim_df):
+    """Verify that sqrt_damping and ratio class weight strategies compute expected weights."""
+    from member4_ml.src.feature_selection import select_features
+    X_train, y_train = select_features(synthetic_paysim_df, dataset="paysim", include_tier_b=False)
+
+    trainer_sqrt = ModelTrainer(dataset="paysim", model_type="lightgbm")
+    res_sqrt = trainer_sqrt.fit(X_train, y_train, class_weight_strategy="sqrt_damping")
+
+    n_pos = int(np.sum(y_train))
+    n_neg = len(y_train) - n_pos
+    expected_sqrt_weight = min(np.sqrt(n_neg / n_pos), 50.0)
+
+    assert trainer_sqrt.metadata["class_weight_strategy"] == "sqrt_damping"
+    assert abs(trainer_sqrt.metadata["scale_pos_weight"] - expected_sqrt_weight) < 1e-4

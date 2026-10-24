@@ -78,6 +78,7 @@ class ModelTrainer:
         optimize_threshold: bool = True,
         threshold_criterion: str = "f1",
         include_tier_b: bool = False,
+        class_weight_strategy: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Fit model using precomputed train split, tune threshold on valid split.
@@ -100,6 +101,8 @@ class ModelTrainer:
             Optimization objective ('f1' or 'fbeta').
         include_tier_b : bool
             Flag recording whether Tier B was included (for ablation metadata).
+        class_weight_strategy : Optional[str]
+            Strategy for LightGBM scale_pos_weight ('ratio', 'sqrt_damping', or None to read from config).
 
         Returns
         -------
@@ -121,7 +124,19 @@ class ModelTrainer:
         # Class imbalance calculation
         n_pos = int(np.sum(y_train))
         n_neg = len(y_train) - n_pos
-        pos_weight = float(n_neg / n_pos) if n_pos > 0 else 1.0
+
+        # Determine weighting strategy
+        ds_cfg = self.config.get(self.dataset, {}) if self.config else {}
+        strategy = class_weight_strategy or ds_cfg.get("class_weight_strategy", "ratio")
+
+        if strategy == "sqrt_damping":
+            # min(sqrt(n_neg / n_pos), 50.0)
+            ratio = float(n_neg / n_pos) if n_pos > 0 else 1.0
+            pos_weight = min(np.sqrt(ratio), 50.0)
+        elif strategy == "unweighted":
+            pos_weight = 1.0
+        else:  # default 'ratio'
+            pos_weight = float(n_neg / n_pos) if n_pos > 0 else 1.0
 
         if self.model_type in ("baseline", "logistic_regression"):
             # Explicit preprocessing pipeline fitted ONLY on training data
@@ -192,6 +207,8 @@ class ModelTrainer:
             "num_features": len(self.feature_names),
             "feature_names": self.feature_names,
             "include_tier_b": include_tier_b,
+            "class_weight_strategy": strategy,
+            "scale_pos_weight": float(pos_weight),
             "train_samples": len(X_train),
             "train_fraud_count": n_pos,
             "train_fraud_rate": float(n_pos / len(X_train)),

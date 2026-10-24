@@ -191,3 +191,58 @@ def test_consumer_fails_fast_on_missing_model_artifact():
             dataset="paysim",
             model_artifact_path="non_existent/model.joblib",
         )
+
+
+def test_paysim_scoring_with_none_feature_and_extra_fields(synthetic_paysim_df):
+    """Verify candidate PaySim model handles None numeric feature and ignores extra fields."""
+    candidate_path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "models",
+        "paysim_lightgbm_sqrt_weight.joblib",
+    )
+    if not os.path.exists(candidate_path):
+        pytest.skip("Candidate artifact paysim_lightgbm_sqrt_weight.joblib not found.")
+
+    engine = FraudScoringEngine(
+        dataset="paysim",
+        model_artifact_path=candidate_path,
+        model_version="v1.0",
+    )
+
+    row_dict = synthetic_paysim_df.iloc[0].to_dict()
+    # Explicitly set numeric feature to None (JSON null)
+    row_dict["dest_amount_zscore"] = None
+    # Add extra uncontracted field
+    row_dict["unrelated_extra_field"] = "should_be_ignored"
+
+    payload, status = engine.process_record(row_dict)
+    assert status == "SCORED"
+    assert payload is not None
+    assert payload["txn_id"] == row_dict["txn_id"]
+    assert "fraud_score" in payload
+    assert 0.0 <= payload["fraud_score"] <= 1.0
+    assert "unrelated_extra_field" not in payload
+
+
+def test_paysim_scoring_invalid_numeric_string(synthetic_paysim_df):
+    """Verify non-numeric string in numeric feature returns INVALID_NUMERIC_FEATURE."""
+    candidate_path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "models",
+        "paysim_lightgbm_sqrt_weight.joblib",
+    )
+    if not os.path.exists(candidate_path):
+        pytest.skip("Candidate artifact paysim_lightgbm_sqrt_weight.joblib not found.")
+
+    engine = FraudScoringEngine(
+        dataset="paysim",
+        model_artifact_path=candidate_path,
+        model_version="v1.0",
+    )
+
+    row_dict = synthetic_paysim_df.iloc[0].to_dict()
+    row_dict["amount"] = "not_a_valid_float_amount"
+
+    payload, status = engine.process_record(row_dict)
+    assert status == "INVALID_NUMERIC_FEATURE"
+    assert payload is None

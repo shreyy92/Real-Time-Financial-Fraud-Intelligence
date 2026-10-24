@@ -56,8 +56,8 @@ Member 4 provides a unified command-line runner supporting four execution modes:
 ### 1. Model Training
 Train a fraud classification model (LightGBM or Baseline Logistic Regression) using precomputed `train` and `valid` splits:
 ```powershell
-# Train LightGBM model on PaySim (Tier A only)
-.\.venv\Scripts\python.exe member4_ml/run_pipeline.py --mode train --dataset paysim --model lightgbm
+# Train LightGBM model on PaySim (Tier A only, with candidate square-root class weight damping)
+.\.venv\Scripts\python.exe member4_ml/run_pipeline.py --mode train --dataset paysim --model lightgbm --class-weight-strategy sqrt_damping
 
 # Train Baseline Logistic Regression on IEEE-CIS
 .\.venv\Scripts\python.exe member4_ml/run_pipeline.py --mode train --dataset ieee --model baseline
@@ -66,10 +66,12 @@ Train a fraud classification model (LightGBM or Baseline Logistic Regression) us
 ### 2. Model Evaluation
 Evaluate a saved model artifact on validation or held-out test data:
 ```powershell
+# Evaluate PaySim candidate model on held-out test split at optimal validation threshold (0.0991)
 .\.venv\Scripts\python.exe member4_ml/run_pipeline.py `
     --mode evaluate `
     --dataset paysim `
-    --model-artifact member4_ml/models/paysim_lightgbm.joblib `
+    --model-artifact member4_ml/models/paysim_lightgbm_sqrt_weight.joblib `
+    --threshold 0.0991 `
     --split test
 ```
 
@@ -85,9 +87,36 @@ Start the streaming consumer daemon to score live transaction features arriving 
 .\.venv\Scripts\python.exe member4_ml/run_pipeline.py `
     --mode consume `
     --dataset paysim `
-    --model-artifact member4_ml/models/paysim_lightgbm.joblib `
+    --model-artifact member4_ml/models/paysim_lightgbm_sqrt_weight.joblib `
+    --threshold 0.0991 `
     --bootstrap-servers localhost:9092
 ```
+
+---
+
+## Model Benchmark & Accepted Candidate Metrics
+
+### PaySim Tier A Accepted Candidate (`paysim_lightgbm_sqrt_weight.joblib`)
+- **Class Weight Strategy**: Square-root damped negative-to-positive ratio:
+  $$\text{scale\_pos\_weight} = \min\left(\sqrt{\frac{N_{\text{neg}}}{N_{\text{pos}}}}, 50.0\right) = \min(\sqrt{1089.06}, 50.0) = 33.00$$
+- **Split Samples**:
+  - `train`: 6,061,807 rows (5,561 frauds, prevalence: 0.0917%)
+  - `valid`: 197,240 rows (1,052 frauds, prevalence: 0.5334%)
+  - `test`: 103,573 rows (1,600 frauds, prevalence: 1.5448%)
+- **Validation Tuning**:
+  - Optimal validation F1 threshold: **0.0991**
+  - Validation F1: **0.8008**, PR-AUC: **0.6289**, ROC-AUC: **0.9614**
+- **Held-Out Test Results** (evaluated at fixed validation threshold 0.0991):
+  - **F1 Score**: **0.8989**
+  - **Precision**: **0.8418**
+  - **Recall**: **0.9644**
+  - **PR-AUC**: **0.7912**
+  - **ROC-AUC**: **0.9648**
+  - **Confusion Matrix**: TP = 1,543, FP = 290, FN = 57, TN = 101,683 (out of 103,573 test samples)
+
+### IEEE-CIS Baseline & LightGBM Model
+- **LightGBM Validation Metrics** (threshold: 0.8316):
+  - ROC-AUC: **0.8985**, PR-AUC: **0.4692**, F1: **0.4658**, Precision: **0.5932**, Recall: **0.3834**
 
 ---
 
